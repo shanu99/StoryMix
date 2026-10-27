@@ -132,8 +132,8 @@ $('micRecord').onclick=async()=>{
    $('micRecord').textContent='● Mic';
    if(!parts.length)return error('Microphone recording was empty');
    const f=new File(parts,'voice-over-'+Date.now()+'.webm',{type});
-   await importFiles([f],true);
-   status('Voice-over recorded and added to audio timeline');
+   selectedTrack='audio-1';await importFiles([f],true);
+   status('Voice-over recorded and added to voice timeline');
   };
   micRecorder.start(250);$('micRecord').textContent='■ Stop Mic';status('Recording microphone…');
  }catch(e){error('Microphone unavailable: '+e.message)}
