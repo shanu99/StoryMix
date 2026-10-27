@@ -35,5 +35,6 @@ function Workspace(){
    <div className="sm-status" role="status">{notice}</div>
   </div>
  </>
+ </div>
 }
 export default function StoryMix(){return <EditorProvider fps={30} defaultTrackHeight={38} initialTracks={tracks} stage={{width:1920,height:1080}}><Workspace/></EditorProvider>}
