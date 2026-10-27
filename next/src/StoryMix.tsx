@@ -1,3 +1,4 @@
+import {ExportModal} from './ExportModal';
 import {TextClipProperties} from './TextClipProperties';
 import {useCallback,useRef,useState} from 'react';
 import {EditorProvider,Preview,Timeline,AssetPanel,ElementsPanel,createDefaultDemuxerFactory,useTracksStore,usePlaybackStore,useTimelineEngine,useSelectionStore,splitClipAtPlayhead,lazyExportVideo,type InitialTrackConfig,type TimelineRef} from '@elah/editor';
@@ -6,15 +7,15 @@ const demuxerFactory=createDefaultDemuxerFactory();
 const saveBlob=(blob:Blob,name:string)=>{const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),60_000)};
 function Workspace(){
  const timeline=useRef<TimelineRef>(null),engine=useTimelineEngine(),playing=usePlaybackStore(s=>s.isPlaying),toggle=usePlaybackStore(s=>s.togglePlayPause),zoom=usePlaybackStore(s=>s.zoom),setZoom=usePlaybackStore(s=>s.setZoom),canUndo=useTracksStore(s=>s.canUndo),canRedo=useTracksStore(s=>s.canRedo),selected=useSelectionStore(s=>s.selectedClipIds.size===1);
- const [exporting,setExporting]=useState(false),[progress,setProgress]=useState(0),[notice,setNotice]=useState('Import files into the library, drag clips to tracks, then edit and export.'),[height,setHeight]=useState(270);
+ const [showExportModal,setShowExportModal]=useState(false);const [exporting,setExporting]=useState(false),[progress,setProgress]=useState(0),[notice,setNotice]=useState('Import files into the library, drag clips to tracks, then edit and export.'),[height,setHeight]=useState(270);
  const dragStart=useRef<{y:number,h:number}|null>(null);
- const exportMp4=useCallback(async()=>{
+ const exportMp4=useCallback(async(opts:{videoBitrate:number;outputHeight:number;videoCodec:'avc'|'hevc'|'vp9'|'av1';audioCodec:'aac'|'opus';signal:AbortSignal;onProgress:(frame:number,totalFrames:number)=>void})=>{
   if(exporting)return;
   setExporting(true);setProgress(0);setNotice('Rendering H.264 MP4...');
   try{
    usePlaybackStore.getState().pause();
    const project=engine.getProject();
-   const blob=await lazyExportVideo(project,{videoCodec:'avc',audioCodec:'aac',outputHeight:720,videoBitrate:6_000_000,onProgress:({frame,totalFrames})=>setProgress(totalFrames?Math.round(100*frame/totalFrames):0)});
+   const blob=await lazyExportVideo(project,{videoCodec:opts.videoCodec,audioCodec:opts.audioCodec,outputHeight:opts.outputHeight,videoBitrate:opts.videoBitrate,signal:opts.signal,onProgress:({frame,totalFrames})=>{setProgress(totalFrames?Math.round(100*frame/totalFrames):0);opts.onProgress(frame,totalFrames)}});
    saveBlob(blob,'StoryMix-export.mp4');setNotice('MP4 export downloaded.');
   }catch(e){setNotice('Export error: '+(e instanceof Error?e.message:String(e)))}
   finally{setExporting(false)}
@@ -22,7 +23,7 @@ function Workspace(){
  const save=()=>{try{const p=engine.getProject();saveBlob(new Blob([JSON.stringify(p,null,2)],{type:'application/json'}),'StoryMix-project.json');setNotice('Project JSON saved. Keep original media files.')}catch(e){setNotice(String(e))}};
  const startResize=(e:React.PointerEvent<HTMLDivElement>)=>{e.preventDefault();dragStart.current={y:e.clientY,h:height};const move=(m:PointerEvent)=>{if(dragStart.current)setHeight(Math.max(150,Math.min(630,dragStart.current.h+dragStart.current.y-m.clientY)))};const up=()=>{dragStart.current=null;window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up)};window.addEventListener('pointermove',move);window.addEventListener('pointerup',up)};
  return <div className="elah-root" style={{display:'flex',flexDirection:'column',height:'100%'}}>
-  <header className="sm-header"><div className="sm-logo"><i>▶</i> StoryMix</div><span className="sm-muted">Turn Moments Into Stories</span><span className="sm-spacer"/><button className="sm-btn" title="Undo Ctrl+Z" onClick={()=>engine.undo()} disabled={!canUndo}>↶</button><button className="sm-btn" title="Redo Ctrl+Shift+Z" onClick={()=>engine.redo()} disabled={!canRedo}>↷</button><button className="sm-btn" onClick={save} title="Save JSON project">Save</button><button className="sm-btn sm-primary" disabled={exporting} onClick={exportMp4}>{exporting?'Export '+progress+'%':'Export MP4'}</button></header>
+  <>{showExportModal&&<ExportModal onClose={()=>setShowExportModal(false)} onExport={exportMp4}/>}<header className="sm-header"><div className="sm-logo"><i>▶</i> StoryMix</div><span className="sm-muted">Turn Moments Into Stories</span><span className="sm-spacer"/><button className="sm-btn" title="Undo Ctrl+Z" onClick={()=>engine.undo()} disabled={!canUndo}>↶</button><button className="sm-btn" title="Redo Ctrl+Shift+Z" onClick={()=>engine.redo()} disabled={!canRedo}>↷</button><button className="sm-btn" onClick={save} title="Save JSON project">Save</button><button className="sm-btn sm-primary" disabled={exporting} onClick={()=>setShowExportModal(true)}>{exporting?'Export '+progress+'%':'Export MP4'}</button></header>
   <div style={{flex:1,display:'flex',flexDirection:'column',minHeight:0}}>
    <div style={{flex:1,display:'flex',minHeight:0}}>
     <aside className="sm-pane"><div className="sm-panel-title">MEDIA · TITLES · ELEMENTS</div><ElementsPanel style={{flexShrink:0,borderBottom:'1px solid #263a4e'}}/><AssetPanel style={{flex:1,minHeight:0}}/></aside>
@@ -33,6 +34,6 @@ function Workspace(){
    <Timeline ref={timeline} fps={30} style={{height,flexShrink:0,minWidth:0}}/>
    <div className="sm-status" role="status">{notice}</div>
   </div>
- </div>
+ </>
 }
 export default function StoryMix(){return <EditorProvider fps={30} defaultTrackHeight={38} initialTracks={tracks} stage={{width:1920,height:1080}}><Workspace/></EditorProvider>}
