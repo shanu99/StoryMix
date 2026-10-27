@@ -4,7 +4,7 @@
   "version": "0.3.0",
   "type": "module",
   "scripts": {
-    "test": "node --test src/editor-core.test.mjs",
-    "check": "node --check src/editor-core.mjs && node --test src/editor-core.test.mjs"
+    "test": "node --test src/*.test.mjs",
+    "check": "node --check src/editor-core.mjs && node --check src/storymix-v1.mjs && node --check src/subtitles.mjs && npm test"
   }
 }
