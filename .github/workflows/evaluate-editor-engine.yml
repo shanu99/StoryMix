@@ -1,0 +1,61 @@
+name: Evaluate open-source editor engine
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/evaluate-editor-engine.yml'
+      - 'docs/editor-engine-evaluation.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  filmcraft-wasm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: filmcraft-desktop/filmcraft
+          path: upstream/filmcraft
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Inspect license and WebAssembly packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f upstream/filmcraft/Cargo.toml
+          test -f upstream/filmcraft/LICENSE-MIT || test -f upstream/filmcraft/LICENSE || test -f upstream/filmcraft/LICENSE-APACHE
+          cd upstream/filmcraft
+          cargo metadata --no-deps --format-version 1 > /tmp/filmcraft-metadata.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/filmcraft-metadata.json'))['packages']
+          print('Workspace packages:',len(p))
+          for x in p: print(x['name'],x.get('license',''))
+          PY
+      - name: Check project-stated browser build
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd upstream/filmcraft
+          cargo xtask ci
+  openreelio-inspection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: openreelio/openreelio
+          persist-credentials: false
+      - name: Inspect reusable frontend and license
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f LICENSE || test -f LICENSE.md
+          test -f package.json
+          node -e "const p=require('./package.json'); console.log(JSON.stringify({name:p.name,scripts:p.scripts},null,2))"
+          echo "Desktop Tauri APIs may not run in Vercel/browser; inspection only."
