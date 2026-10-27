@@ -54,6 +54,26 @@ for(const id of ['eqLow','eqMid','eqHigh','compress'])$(id).oninput=applyEQ;
 $('audioPreset').onchange=e=>{const settings={natural:[0,0,0,false],voice:[-4,2,4,true],podcast:[2,1,3,true],music:[2,0,2,false]}[e.target.value];['eqLow','eqMid','eqHigh'].forEach((id,i)=>$(id).value=settings[i]);$('compress').checked=settings[3];applyEQ();status('Audio preset: '+e.target.options[e.target.selectedIndex].text)};
 
 $('record').onclick=async()=>{if(recorder?.state==='recording'){recorder.stop();return}try{let stream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:true});recorderChunks=[];let mime=['video/webm;codecs=vp9','video/webm'].find(x=>MediaRecorder.isTypeSupported(x));recorder=new MediaRecorder(stream,{mimeType:mime});recorder.ondataavailable=e=>{if(e.data.size)recorderChunks.push(e.data)};recorder.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());$('record').textContent='◎ Screen';let f=new File(recorderChunks,'screen-recording.webm',{type:mime});await importFiles([f],true)};recorder.start(250);$('record').textContent='■ Stop';stream.getVideoTracks()[0].onended=()=>{if(recorder.state==='recording')recorder.stop()};status('Recording screen')}catch(e){error('Recording unavailable: '+e.message)}};
+let micRecorder=null;
+$('micRecord').onclick=async()=>{
+ if(micRecorder?.state==='recording'){micRecorder.stop();return}
+ try{
+  const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+  const parts=[],type=['audio/webm;codecs=opus','audio/webm'].find(t=>MediaRecorder.isTypeSupported(t));
+  if(!type)throw Error('Microphone recording unsupported by this browser');
+  micRecorder=new MediaRecorder(stream,{mimeType:type});
+  micRecorder.ondataavailable=e=>{if(e.data.size)parts.push(e.data)};
+  micRecorder.onstop=async()=>{
+   stream.getTracks().forEach(track=>track.stop());
+   $('micRecord').textContent='● Mic';
+   if(!parts.length)return error('Microphone recording was empty');
+   const f=new File(parts,'voice-over-'+Date.now()+'.webm',{type});
+   await importFiles([f],true);
+   status('Voice-over recorded and added to audio timeline');
+  };
+  micRecorder.start(250);$('micRecord').textContent='■ Stop Mic';status('Recording microphone…');
+ }catch(e){error('Microphone unavailable: '+e.message)}
+};
 document.addEventListener('dragover',e=>{if(e.dataTransfer?.types.includes('Files'))e.preventDefault()});document.addEventListener('drop',async e=>{if(!e.dataTransfer.files.length)return;e.preventDefault();await importFiles([...e.dataTransfer.files])});
 document.addEventListener('keydown',e=>{if(e.target.matches('input,textarea,select')||exporting)return;if((e.ctrlKey||e.metaKey)&&e.code==='KeyZ'){e.preventDefault();e.shiftKey?$('redo').click():$('undo').click()}else if(e.code==='Space'){e.preventDefault();play()}else if(e.code==='KeyS'&&!e.ctrlKey&&!e.metaKey){e.preventDefault();$('split').click()}else if(e.code==='Delete'){e.preventDefault();e.shiftKey?$('rippleDelete').click():$('delete').click()}else if(e.code==='ArrowLeft'){pause();seek(clock-1)}else if(e.code==='ArrowRight'){pause();seek(clock+1)}});
 $('clipVolume').oninput=e=>$('volumeDisplay').textContent=e.target.value+'%';
