@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {createProject,addMedia,addClip,splitClip,moveClip,trimClip,removeClip,History,activeClips,serialize,deserialize,duration,rippleDelete,insertClip} from './editor-core.mjs';
+import test from 'node:test';import assert from 'node:assert/strict';import {createProject,addMedia,addClip,splitClip,moveClip,trimClip,removeClip,History,activeClips,serialize,deserialize,duration,rippleDelete,insertClip,patchClip} from './editor-core.mjs';
 const setup=()=>{let p=createProject();p=addMedia(p,{id:'media1',name:'clip.mp4',type:'video',duration:20});p=addClip(p,{id:'clip1',trackId:'video-1',mediaId:'media1',start:0,inPoint:2,length:10});return p};
 test('project + media + clip + timeline duration',()=>{let p=setup();assert.equal(duration(p),10);assert.equal(activeClips(p,4)[0].sourceTime,6)});
 test('split has correct source in point',()=>{let {project:p}=splitClip(setup(),'clip1',4);let [a,b]=p.tracks[0].clips;assert.equal(a.duration,4);assert.equal(b.start,4);assert.equal(b.inPoint,6);assert.equal(b.duration,6)});
@@ -10,3 +10,7 @@ test('reject invalid media range',()=>{assert.throws(()=>addClip(setup(),{trackI
 
 test('ripple delete shifts later clips',()=>{let p=setup();p=addClip(p,{id:'second',trackId:'video-1',mediaId:'media1',start:12,length:4});let q=rippleDelete(p,'clip1');assert.equal(q.tracks[0].clips[0].start,2)});
 test('insert pushes later clips',()=>{let p=setup();let q=insertClip(p,{id:'inserted',trackId:'video-1',mediaId:'media1',start:0,inPoint:0,length:2});assert.equal(q.tracks[0].clips.find(c=>c.id==='clip1').start,2)});
+
+test('speed adjusted split preserves source timing',()=>{let p=setup();p=patchClip(p,'clip1',{speed:1.5});let out=splitClip(p,'clip1',4).project;assert.equal(out.tracks[0].clips[1].inPoint,8);});
+test('source bounds reject too-fast video clips',()=>{let p=setup();assert.throws(()=>patchClip(p,'clip1',{speed:2}),/source duration/);});
+test('trim left after changing speed shifts source by speed',()=>{let p=patchClip(setup(),'clip1',{speed:1.5});let q=trimClip(p,'clip1',{edge:'left',time:2});assert.equal(q.tracks[0].clips[0].inPoint,5);assert.equal(q.tracks[0].clips[0].duration,8)});
