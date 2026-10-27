@@ -5,7 +5,7 @@ test('split has correct source in point',()=>{let {project:p}=splitClip(setup(),
 test('move refuses overlaps',()=>{let p=setup();p=addClip(p,{id:'another',trackId:'video-1',mediaId:'media1',start:12,length:5});assert.throws(()=>moveClip(p,'another',{start:8}),/overlap/);assert.equal(moveClip(p,'another',{start:15}).tracks[0].clips[1].start,15)});
 test('trim ends and starts',()=>{let p=trimClip(setup(),'clip1',{edge:'left',time:3});assert.equal(p.tracks[0].clips[0].inPoint,5);assert.equal(p.tracks[0].clips[0].duration,7);p=trimClip(p,'clip1',{edge:'right',time:8});assert.equal(p.tracks[0].clips[0].duration,5)});
 test('remove and undo redo',()=>{let h=new History(setup());h.apply(p=>removeClip(p,'clip1'));assert.equal(h.current.tracks[0].clips.length,0);assert.equal(h.undo().tracks[0].clips.length,1);assert.equal(h.redo().tracks[0].clips.length,0)});
-test('round-trip project serialization',()=>{assert.deepEqual(deserialize(serialize(setup())),setup())});
+test('round-trip project serialization',()=>{let p=setup();assert.deepEqual(deserialize(serialize(p)),p)});
 test('reject invalid media range',()=>{assert.throws(()=>addClip(setup(),{trackId:'video-1',mediaId:'media1',start:11,inPoint:19,length:2}),/exceeds/)});
 
 test('ripple delete shifts later clips',()=>{let p=setup();p=addClip(p,{id:'second',trackId:'video-1',mediaId:'media1',start:12,length:4});let q=rippleDelete(p,'clip1');assert.equal(q.tracks[0].clips[0].start,2)});
