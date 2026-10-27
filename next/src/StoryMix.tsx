@@ -1,44 +1,481 @@
-import {parseSrt,writeSrt} from './subtitles';
-import {ExportModal} from './ExportModal';
-import {TextClipProperties} from './TextClipProperties';
-import {useCallback,useRef,useState} from 'react';
-import {EditorProvider,Preview,Timeline,AssetPanel,ElementsPanel,createDefaultDemuxerFactory,useTracksStore,usePlaybackStore,useTimelineEngine,useSelectionStore,splitClipAtPlayhead,lazyExportVideo,readProjectDocument,type InitialTrackConfig,type TimelineRef,type ExportVideoCodec,type ExportAudioCodec} from '@elah/editor';
-const tracks:InitialTrackConfig[]=[{kind:'video',name:'Video 1'},{kind:'video',name:'Video 2'},{kind:'elements',name:'Titles / Sinhala Captions'},{kind:'audio',name:'Voice'},{kind:'audio',name:'Music'}];
-const demuxerFactory=createDefaultDemuxerFactory();
-const saveBlob=(blob:Blob,name:string)=>{const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),60_000)};
-function Workspace(){
- const subtitleInput=useRef<HTMLInputElement>(null),fileInput=useRef<HTMLInputElement>(null),timeline=useRef<TimelineRef>(null),engine=useTimelineEngine(),playing=usePlaybackStore(s=>s.isPlaying),toggle=usePlaybackStore(s=>s.togglePlayPause),zoom=usePlaybackStore(s=>s.zoom),setZoom=usePlaybackStore(s=>s.setZoom),canUndo=useTracksStore(s=>s.canUndo),canRedo=useTracksStore(s=>s.canRedo),selected=useSelectionStore(s=>s.selectedClipIds.size===1);
- const [showExportModal,setShowExportModal]=useState(false);const [exporting,setExporting]=useState(false),[progress,setProgress]=useState(0),[notice,setNotice]=useState('Import files into the library, drag clips to tracks, then edit and export.'),[height,setHeight]=useState(270);
- const dragStart=useRef<{y:number,h:number}|null>(null);
- const exportMp4=useCallback(async(opts:{videoBitrate:number;outputHeight:number;videoCodec:ExportVideoCodec;audioCodec:ExportAudioCodec;signal:AbortSignal;onProgress:(frame:number,totalFrames:number)=>void})=>{
-  if(exporting)return;
-  setExporting(true);setProgress(0);setNotice('Rendering H.264 MP4...');
-  try{
-   usePlaybackStore.getState().pause();
-   const project=engine.getProject();
-   const blob=await lazyExportVideo(project,{videoCodec:opts.videoCodec,audioCodec:opts.audioCodec,outputHeight:opts.outputHeight,videoBitrate:opts.videoBitrate,signal:opts.signal,onProgress:({frame,totalFrames})=>{setProgress(totalFrames?Math.round(100*frame/totalFrames):0);opts.onProgress(frame,totalFrames)}});
-   saveBlob(blob,'StoryMix-export.mp4');setNotice('MP4 export downloaded.');
-  }catch(e){setNotice('Export error: '+(e instanceof Error?e.message:String(e)))}
-  finally{setExporting(false)}
- },[engine,exporting]);
- const save=()=>{try{const p=engine.getProject();saveBlob(new Blob([JSON.stringify(p,null,2)],{type:'application/json'}),'StoryMix-project.json');setNotice('Project JSON saved. Keep original media files.')}catch(e){setNotice(String(e))}};
- const openProject=async(file:File)=>{try{const data=JSON.parse(await file.text());const project=readProjectDocument(data);usePlaybackStore.getState().pause();engine.loadProject(project,{history:'reset',transport:'rewind'});setNotice('Project reopened. Reimport / relink any missing source media before preview or export.')}catch(e){setNotice('Could not open project: '+(e instanceof Error?e.message:String(e)))}};
- const importSrt=async(file:File)=>{try{const lines=parseSrt(await file.text());if(!lines.length)throw new Error('No subtitles found');const track=engine.addTrack('elements',{name:'Captions'});let inserted=0;engine.batch(()=>{for(const line of lines){engine.addClip({type:'text',trackId:track.id,name:'Caption',startFrame:Math.round(line.start*30),durationFrames:Math.max(1,Math.round((line.end-line.start)*30)),text:{content:line.text,fontSize:48,color:'#ffffff',fontFamily:'Noto Sans Sinhala, sans-serif',fontWeight:'bold',textAlign:'center'}});inserted++}},'Import SRT captions');setNotice('Imported '+inserted+' editable Sinhala/English captions')}catch(e){setNotice('SRT import failed: '+(e instanceof Error?e.message:String(e)))}};
- const exportSrt=()=>{const p=engine.getProject();const captionTracks=p.tracks.filter(t=>t.kind==='elements'&&/caption/i.test(t.name));const entries=captionTracks.flatMap(t=>(p.clips[t.id]||[]).filter(c=>c.type==='text'&&c.content).map(c=>({start:c.startFrame/30,end:(c.startFrame+c.durationFrames)/30,text:c.content!})));if(!entries.length)return setNotice('No captions to export');saveBlob(new Blob([writeSrt(entries)],{type:'text/plain;charset=utf-8'}),'StoryMix-captions.srt');setNotice('SRT subtitles saved')};
- const startResize=(e:React.PointerEvent<HTMLDivElement>)=>{e.preventDefault();dragStart.current={y:e.clientY,h:height};const move=(m:PointerEvent)=>{if(dragStart.current)setHeight(Math.max(150,Math.min(630,dragStart.current.h+dragStart.current.y-m.clientY)))};const up=()=>{dragStart.current=null;window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up)};window.addEventListener('pointermove',move);window.addEventListener('pointerup',up)};
- return <div className="elah-root" style={{display:'flex',flexDirection:'column',height:'100%'}}>
-  <>{showExportModal&&<ExportModal onClose={()=>setShowExportModal(false)} onExport={exportMp4}/>}<header className="sm-header"><div className="sm-logo"><i>▶</i> StoryMix</div><span className="sm-muted">Turn Moments Into Stories</span><span className="sm-spacer"/><button className="sm-btn" title="Undo Ctrl+Z" onClick={()=>engine.undo()} disabled={!canUndo}>↶</button><button className="sm-btn" title="Redo Ctrl+Shift+Z" onClick={()=>engine.redo()} disabled={!canRedo}>↷</button><input ref={fileInput} type="file" accept=".json,application/json" className="sm-file" onChange={async e=>{const f=e.target.files?.[0];if(f)await openProject(f);e.target.value=''}}/><button className="sm-btn" onClick={()=>fileInput.current?.click()} title="Open saved project">Open</button><input ref={subtitleInput} type="file" accept=".srt,text/plain" className="sm-file" onChange={async e=>{const file=e.target.files?.[0];if(file)await importSrt(file);e.target.value=''}}/><button className="sm-btn" onClick={()=>subtitleInput.current?.click()} title="Import timed subtitles">SRT Import</button><button className="sm-btn" onClick={exportSrt} title="Download editable captions as SRT">SRT Export</button><button className="sm-btn" onClick={save} title="Save JSON project">Save</button><button className="sm-btn sm-primary" disabled={exporting} onClick={()=>setShowExportModal(true)}>{exporting?'Export '+progress+'%':'Export MP4'}</button></header>
-  <div style={{flex:1,display:'flex',flexDirection:'column',minHeight:0}}>
-   <div style={{flex:1,display:'flex',minHeight:0}}>
-    <aside className="sm-pane"><div className="sm-panel-title">MEDIA · TITLES · ELEMENTS</div><ElementsPanel style={{flexShrink:0,borderBottom:'1px solid #263a4e'}}/><AssetPanel style={{flex:1,minHeight:0}}/></aside>
-    <main className="sm-preview"><div style={{flex:1,minHeight:0,position:'relative'}}><Preview demuxerFactory={demuxerFactory} style={{width:'100%',height:'100%'}} /></div><div className="sm-transport"><button className="sm-btn" onClick={toggle} title="Play / Pause (Space)">{playing?'⏸ Pause':'▶ Play'}</button><span className="sm-muted">WebGL2 realtime preview</span></div></main><TextClipProperties/>
-   </div>
-   <div className="sm-timeline-toolbar"><button className="sm-btn" title="Split clip at playhead (S)" disabled={!selected} onClick={()=>{const x=splitClipAtPlayhead(engine);if(!x.ok)setNotice('Split: '+x.reason)}}>✂</button><button className="sm-btn" title="Fit timeline" onClick={()=>timeline.current?.fitToWindow()}>Fit</button><span className="sm-spacer"/><span className="sm-muted">Zoom</span><input className="sm-slider" aria-label="Timeline zoom" type="range" min=".05" max="10" step=".05" value={Math.min(10,Math.max(.05,zoom))} onChange={e=>setZoom(Number(e.target.value))}/><button className="sm-btn" onClick={()=>engine.setStage(1920,1080)}>16:9</button><button className="sm-btn" onClick={()=>engine.setStage(1080,1920)}>9:16</button><button className="sm-btn" onClick={()=>engine.setStage(1080,1080)}>1:1</button></div>
-   <div role="separator" aria-orientation="horizontal" onPointerDown={startResize} title="Drag to resize timeline" style={{height:6,cursor:'ns-resize',background:'#25384a',touchAction:'none'}}/>
-   <Timeline ref={timeline} fps={30} style={{height,flexShrink:0,minWidth:0}}/>
-   <div className="sm-status" role="status">{notice}</div>
-  </div>
- </>
- </div>
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { TextClipProperties } from './TextClipProperties'
+import { ExportModal } from './ExportModal'
+import { btnDisabled, theme } from './theme'
+import {
+  AssetPanel,
+  ElementsPanel,
+  EditorProvider,
+  Preview,
+  Timeline,
+  createDefaultDemuxerFactory,
+  useTracksStore,
+  usePlaybackStore,
+  useSelectionStore,
+  useTimelineEngine,
+  splitClipAtPlayhead,
+  framesToTimecode,
+  type InitialTrackConfig,
+  type TimelineRef,
+  type ExportVideoCodec,
+  type ExportAudioCodec,
+} from '@elah/editor'
+
+const FPS = 30
+
+// One video lane on top, an elements (text/shape) lane, then two audio lanes.
+// Any number of audio/elements tracks is supported. Order is top→bottom in the
+// UI (lower index renders on top). The demo/asset APIs fill these lanes.
+const INITIAL_TRACKS: InitialTrackConfig[] = [
+  { kind: 'video', name: 'Video / Image' },
+  { kind: 'video', name: 'Video Overlay' },
+  { kind: 'elements', name: 'Titles / Sinhala Captions' },
+  { kind: 'audio', name: 'Audio (Main)' },
+  { kind: 'audio', name: 'Audio 2' },
+]
+
+const ZOOM_MIN = 0.02
+const ZOOM_MAX = 50
+const zoomToSlider = (z: number) =>
+  (Math.log(z) - Math.log(ZOOM_MIN)) / (Math.log(ZOOM_MAX) - Math.log(ZOOM_MIN))
+const sliderToZoom = (s: number) =>
+  Math.exp(Math.log(ZOOM_MIN) + s * (Math.log(ZOOM_MAX) - Math.log(ZOOM_MIN)))
+
+const divider: React.CSSProperties = {
+  width: 1,
+  height: 18,
+  background: theme.border,
+  flexShrink: 0,
+  margin: '0 8px',
 }
-export default function StoryMix(){return <EditorProvider fps={30} defaultTrackHeight={38} initialTracks={tracks} stage={{width:1920,height:1080}}><Workspace/></EditorProvider>}
+
+const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }) {
+  const canUndo = useTracksStore((s) => s.canUndo)
+  const canRedo = useTracksStore((s) => s.canRedo)
+  const engine = useTimelineEngine()
+
+  return (
+    <header
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        columnGap: 12,
+        rowGap: 6,
+        padding: '6px 16px',
+        minHeight: 46,
+        background: theme.bgSecondary,
+        borderBottom: `1px solid ${theme.border}`,
+        flexShrink: 0,
+      }}
+    >
+      <span
+        style={{
+          fontSize: 13,
+          fontWeight: 700,
+          color: theme.textPrimary,
+          letterSpacing: '-0.02em',
+        }}
+      >
+        StoryMix · Turn Moments Into Stories
+      </span>
+
+      <div style={{ display: 'flex', gap: 4 }}>
+        <button
+          type="button"
+          className="elah-toolbar-btn"
+          style={btnDisabled(!canUndo)}
+          disabled={!canUndo}
+          onClick={() => engine.undo()}
+          title="Undo (Ctrl+Z)"
+        >
+          ↶
+        </button>
+        <button
+          type="button"
+          className="elah-toolbar-btn"
+          style={btnDisabled(!canRedo)}
+          disabled={!canRedo}
+          onClick={() => engine.redo()}
+          title="Redo (Ctrl+Y)"
+        >
+          ↷
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button
+          type="button"
+          className="elah-export-btn"
+          style={btnDisabled(false)}
+          onClick={onExport}
+          title="Export to MP4"
+        >
+          ⬇ Export
+        </button>
+      </div>
+    </header>
+  )
+})
+
+// Play control + running time — mirrors the app-side editor by sitting directly
+// below the preview. A 1fr auto 1fr grid centers the play button; the running
+// time / total time reads on the left.
+const PreviewTransport = memo(function PreviewTransport() {
+  const isPlaying = usePlaybackStore((s) => s.isPlaying)
+  const togglePlayPause = usePlaybackStore((s) => s.togglePlayPause)
+  const totalFrames = useTracksStore((s) => s.totalFrames)
+  const timecodeRef = useRef<HTMLSpanElement>(null)
+
+  useEffect(() => {
+    return usePlaybackStore.subscribe((state) => {
+      if (timecodeRef.current) {
+        const dur = Math.max(totalFrames, 1)
+        timecodeRef.current.textContent =
+          `${framesToTimecode(state.currentFrame, FPS)} / ${framesToTimecode(dur, FPS)}`
+      }
+    })
+  }, [totalFrames])
+
+  useEffect(() => {
+    if (timecodeRef.current) {
+      const frame = usePlaybackStore.getState().currentFrame
+      const dur = Math.max(totalFrames, 1)
+      timecodeRef.current.textContent =
+        `${framesToTimecode(frame, FPS)} / ${framesToTimecode(dur, FPS)}`
+    }
+  }, [totalFrames])
+
+  const playBtnStyle: React.CSSProperties = {
+    ...btnDisabled(false),
+    minWidth: 36,
+    padding: '5px 12px',
+    ...(isPlaying
+      ? {
+          background: 'rgba(34, 197, 94, 0.12)',
+          border: `1px solid ${theme.success}`,
+          color: theme.success,
+        }
+      : {}),
+  }
+
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr auto 1fr',
+        alignItems: 'center',
+        gap: 12,
+        minHeight: 40,
+        padding: '6px 16px',
+        background: theme.bgSecondary,
+        borderTop: `1px solid ${theme.border}`,
+        flexShrink: 0,
+      }}
+    >
+      <span
+        ref={timecodeRef}
+        style={{
+          fontSize: 11,
+          color: theme.textSecondary,
+          fontFamily: theme.fontMono,
+          letterSpacing: '0.02em',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        00:00:00:00 / 00:00:00:00
+      </span>
+
+      <button
+        type="button"
+        className="elah-toolbar-btn"
+        style={playBtnStyle}
+        onClick={togglePlayPause}
+        title="Play / Pause (Space)"
+      >
+        {isPlaying ? '⏸' : '▶'}
+      </button>
+
+      <span />
+    </div>
+  )
+})
+
+const TimelineControls = memo(function TimelineControls({
+  timelineRef,
+}: {
+  timelineRef: React.RefObject<TimelineRef | null>
+}) {
+  const engine = useTimelineEngine()
+  const zoom = usePlaybackStore((s) => s.zoom)
+  const setZoom = usePlaybackStore((s) => s.setZoom)
+  const stage = useTracksStore((s) => s.stage)
+  const hasSelection = useSelectionStore((s) => s.selectedClipIds.size === 1)
+
+  const splitAtPlayhead = useCallback(() => {
+    const result = splitClipAtPlayhead(engine)
+    if (!result.ok) console.warn('[example] split failed:', result.reason)
+  }, [engine])
+
+  const aspectActive = (w: number, h: number) =>
+    Math.abs(stage.width / stage.height - w / h) < 0.001
+
+  const aspectBtn = (active: boolean): React.CSSProperties => ({
+    ...btnDisabled(false),
+    minWidth: 44,
+    padding: '5px 10px',
+    ...(active
+      ? {
+          background: 'rgba(225, 29, 72, 0.12)',
+          border: `1px solid ${theme.accent}`,
+          color: theme.accentHover,
+          boxShadow: `0 0 10px rgba(225, 29, 72, 0.35)`,
+        }
+      : {}),
+  })
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        columnGap: 12,
+        rowGap: 6,
+        minHeight: 40,
+        padding: '6px 16px',
+        background: theme.bgSecondary,
+        borderTop: `1px solid ${theme.border}`,
+        flexShrink: 0,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <button
+          type="button"
+          className="elah-toolbar-btn"
+          style={btnDisabled(!hasSelection)}
+          disabled={!hasSelection}
+          onClick={splitAtPlayhead}
+          title="Split at playhead (S)"
+        >
+          ✂ Split
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+        <span style={{ fontSize: 11, color: theme.textMuted }}>Zoom</span>
+        <input
+          type="range"
+          className="elah-range"
+          min={0}
+          max={1}
+          step={0.001}
+          value={zoomToSlider(zoom)}
+          onChange={(e) => setZoom(sliderToZoom(Number(e.target.value)))}
+          style={{ width: 96 }}
+        />
+        <span style={{ fontSize: 11, color: theme.textMuted, fontFamily: theme.fontMono, minWidth: 56 }}>
+          {zoom < 1 ? zoom.toFixed(2) : zoom.toFixed(1)} px/f
+        </span>
+        <button
+          type="button"
+          className="elah-toolbar-btn"
+          style={btnDisabled(false)}
+          onClick={() => timelineRef.current?.fitToWindow()}
+          title="Zoom to fit timeline"
+        >
+          Fit
+        </button>
+
+        <div style={divider} />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <button
+            type="button"
+            className="elah-toolbar-btn"
+            style={aspectBtn(aspectActive(1920, 1080))}
+            onClick={() => engine.setStage(1920, 1080)}
+            title="Landscape 16:9"
+          >
+            16:9
+          </button>
+          <button
+            type="button"
+            className="elah-toolbar-btn"
+            style={aspectBtn(aspectActive(1080, 1920))}
+            onClick={() => engine.setStage(1080, 1920)}
+            title="Portrait 9:16"
+          >
+            9:16
+          </button>
+          <button
+            type="button"
+            className="elah-toolbar-btn"
+            style={aspectBtn(aspectActive(1080, 1080))}
+            onClick={() => engine.setStage(1080, 1080)}
+            title="Square 1:1"
+          >
+            1:1
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+})
+
+export default function ProductionEditor() {
+  const timelineRef = useRef<TimelineRef>(null)
+  const demuxerFactoryRef = useRef(createDefaultDemuxerFactory())
+
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [timelineHeight, setTimelineHeight] = useState(236)
+  const resizeRef = useRef<{ startY: number; startHeight: number } | null>(null)
+
+  // Drag the handle above the timeline to resize its height. Clamped so the
+  // timeline can neither swallow the canvas nor collapse below a usable strip.
+  const onTimelineResizeStart = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      e.preventDefault()
+      resizeRef.current = { startY: e.clientY, startHeight: timelineHeight }
+      const onMove = (ev: PointerEvent) => {
+        if (!resizeRef.current) return
+        const delta = ev.clientY - resizeRef.current.startY
+        setTimelineHeight(
+          Math.min(600, Math.max(120, resizeRef.current.startHeight - delta)),
+        )
+      }
+      const onUp = () => {
+        resizeRef.current = null
+        window.removeEventListener('pointermove', onMove)
+        window.removeEventListener('pointerup', onUp)
+      }
+      window.addEventListener('pointermove', onMove)
+      window.addEventListener('pointerup', onUp)
+    },
+    [timelineHeight],
+  )
+
+  const handleExportStart = useCallback(async (opts: {
+    videoBitrate: number
+    outputHeight: number
+    videoCodec: ExportVideoCodec
+    audioCodec: ExportAudioCodec
+    signal: AbortSignal
+    onProgress: (frame: number, totalFrames: number) => void
+  }) => {
+    const e = timelineRef.current?.engine
+    if (!e) return
+    usePlaybackStore.getState().pause()
+    const project = e.getProject()
+    const { lazyExportVideo } = await import('@elah/editor')
+    const blob = await lazyExportVideo(project, {
+      videoBitrate: opts.videoBitrate,
+      outputHeight: opts.outputHeight,
+      videoCodec: opts.videoCodec,
+      audioCodec: opts.audioCodec,
+      signal: opts.signal,
+      onProgress: ({ frame, totalFrames }) => opts.onProgress(frame, totalFrames),
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'StoryMix-export.mp4'
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  }, [])
+
+  return (
+    <EditorProvider
+      fps={FPS}
+      defaultTrackHeight={36}
+      initialTracks={INITIAL_TRACKS}
+      stage={{ width: 1920, height: 1080 }}
+    >
+      <div
+        className="elah-root"
+        style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
+      >
+        <AppHeader onExport={() => setShowExportModal(true)} />
+        {showExportModal && (
+          <ExportModal
+            onClose={() => setShowExportModal(false)}
+            onExport={handleExportStart}
+          />
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+          <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                width: 220,
+                flexShrink: 0,
+                borderRight: `1px solid ${theme.border}`,
+                background: theme.bgPanel,
+                minHeight: 0,
+                overflow: 'hidden',
+              }}
+            >
+              <ElementsPanel
+                style={{ flexShrink: 0, borderBottom: `1px solid ${theme.border}` }}
+              />
+              <AssetPanel style={{ flex: 1, minHeight: 0 }} />
+            </div>
+
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                minHeight: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                background: theme.bgPrimary,
+              }}
+            >
+              <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+                <Preview
+                  demuxerFactory={demuxerFactoryRef.current}
+                  style={{ width: '100%', height: '100%' }}
+                />
+              </div>
+              <PreviewTransport />
+            </div>
+
+            <TextClipProperties />
+          </div>
+
+          <TimelineControls timelineRef={timelineRef} />
+
+          <div
+            role="separator"
+            aria-orientation="horizontal"
+            title="Drag to resize timeline"
+            onPointerDown={onTimelineResizeStart}
+            style={{
+              height: 7,
+              flexShrink: 0,
+              cursor: 'ns-resize',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: theme.bgSecondary,
+              borderTop: `1px solid ${theme.border}`,
+              touchAction: 'none',
+            }}
+          >
+            <div style={{ width: 36, height: 3, borderRadius: 2, background: theme.border }} />
+          </div>
+
+          <Timeline
+            ref={timelineRef}
+            fps={FPS}
+            style={{ height: timelineHeight, flexShrink: 0, minWidth: 0 }}
+          />
+        </div>
+      </div>
+    </EditorProvider>
+  )
+}
