@@ -34,3 +34,20 @@ export function activeClips(p,time){return p.tracks.filter(t=>!t.muted).flatMap(
 export function serialize(p){return JSON.stringify(p)}
 export function deserialize(s){let p=JSON.parse(s);if(p.version!==VERSION||!Array.isArray(p.tracks)||!Array.isArray(p.media))throw Error('Unsupported project');return p}
 export class History {constructor(project=createProject(),limit=100){this.states=[copy(project)];this.index=0;this.limit=limit}get current(){return copy(this.states[this.index])}apply(fn){let next=fn(this.current);this.states=this.states.slice(0,this.index+1);this.states.push(copy(next));if(this.states.length>this.limit)this.states.shift();this.index=this.states.length-1;return this.current}undo(){this.index=Math.max(0,this.index-1);return this.current}redo(){this.index=Math.min(this.states.length-1,this.index+1);return this.current}}
+
+/** Ripple-remove one clip and shift following clips on that track left. */
+export function rippleDelete(p,id){
+ let q=copy(p),r=locate(q,id);if(r.track.locked)throw Error('Track is locked');
+ const {start,duration:removed}=r.clip;r.track.clips.splice(r.index,1);
+ for(const c of r.track.clips)if(c.start>=start+removed-0.00001)c.start=Math.max(0,c.start-removed);
+ return q;
+}
+/** Insert a clip into an occupied track by pushing all later clips. */
+export function insertClip(p,details){
+ const q=copy(p),t=track(q,details.trackId),start=check(details.start??0),length=details.length;
+ if(!Number.isFinite(length)||length<=0)throw Error('Invalid duration');
+ const overlapping=t.clips.some(c=>c.start<start&&c.start+c.duration>start+0.00001);
+ if(overlapping)throw Error('Split the existing clip before inserting here');
+ for(const c of t.clips)if(c.start>=start)c.start+=length;
+ return addClip(q,details);
+}
