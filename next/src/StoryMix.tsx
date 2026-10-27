@@ -1,7 +1,7 @@
 import {ExportModal} from './ExportModal';
 import {TextClipProperties} from './TextClipProperties';
 import {useCallback,useRef,useState} from 'react';
-import {EditorProvider,Preview,Timeline,AssetPanel,ElementsPanel,createDefaultDemuxerFactory,useTracksStore,usePlaybackStore,useTimelineEngine,useSelectionStore,splitClipAtPlayhead,lazyExportVideo,type InitialTrackConfig,type TimelineRef} from '@elah/editor';
+import {EditorProvider,Preview,Timeline,AssetPanel,ElementsPanel,createDefaultDemuxerFactory,useTracksStore,usePlaybackStore,useTimelineEngine,useSelectionStore,splitClipAtPlayhead,lazyExportVideo,type InitialTrackConfig,type TimelineRef,type ExportVideoCodec,type ExportAudioCodec} from '@elah/editor';
 const tracks:InitialTrackConfig[]=[{kind:'video',name:'Video 1'},{kind:'video',name:'Video 2'},{kind:'elements',name:'Titles / Sinhala Captions'},{kind:'audio',name:'Voice'},{kind:'audio',name:'Music'}];
 const demuxerFactory=createDefaultDemuxerFactory();
 const saveBlob=(blob:Blob,name:string)=>{const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),60_000)};
@@ -9,7 +9,7 @@ function Workspace(){
  const timeline=useRef<TimelineRef>(null),engine=useTimelineEngine(),playing=usePlaybackStore(s=>s.isPlaying),toggle=usePlaybackStore(s=>s.togglePlayPause),zoom=usePlaybackStore(s=>s.zoom),setZoom=usePlaybackStore(s=>s.setZoom),canUndo=useTracksStore(s=>s.canUndo),canRedo=useTracksStore(s=>s.canRedo),selected=useSelectionStore(s=>s.selectedClipIds.size===1);
  const [showExportModal,setShowExportModal]=useState(false);const [exporting,setExporting]=useState(false),[progress,setProgress]=useState(0),[notice,setNotice]=useState('Import files into the library, drag clips to tracks, then edit and export.'),[height,setHeight]=useState(270);
  const dragStart=useRef<{y:number,h:number}|null>(null);
- const exportMp4=useCallback(async(opts:{videoBitrate:number;outputHeight:number;videoCodec:'avc'|'hevc'|'vp9'|'av1';audioCodec:'aac'|'opus';signal:AbortSignal;onProgress:(frame:number,totalFrames:number)=>void})=>{
+ const exportMp4=useCallback(async(opts:{videoBitrate:number;outputHeight:number;videoCodec:ExportVideoCodec;audioCodec:ExportAudioCodec;signal:AbortSignal;onProgress:(frame:number,totalFrames:number)=>void})=>{
   if(exporting)return;
   setExporting(true);setProgress(0);setNotice('Rendering H.264 MP4...');
   try{
