@@ -14,6 +14,8 @@ import {
   usePlaybackStore,
   useSelectionStore,
   useTimelineEngine,
+  useMediaLibrary,
+  insertMediaAsset,
   splitClipAtPlayhead,
   framesToTimecode,
   type InitialTrackConfig,
@@ -54,10 +56,13 @@ const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }
   const canUndo = useTracksStore((s) => s.canUndo)
   const canRedo = useTracksStore((s) => s.canRedo)
   const engine = useTimelineEngine()
+  const mediaRef = useRef<HTMLInputElement>(null)
+  const {importFiles}=useMediaLibrary()
   const srtRef = useRef<HTMLInputElement>(null)
   const projectRef = useRef<HTMLInputElement>(null)
   const [message,setMessage]=useState('')
   const download=(blob:Blob,name:string)=>{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000)}
+  const importMedia=async(files:File[])=>{setMessage('Importing '+files.length+' media files...');try{const result=await importFiles(files);let added=0;for(const asset of result.imported){const inserted=await insertMediaAsset(engine,asset.id,{desiredStartFrame:engine.getTotalFrames()});if(inserted.ok)added++}setMessage('Imported '+result.imported.length+' files, placed '+added+' clips'+(result.skipped.length?'; skipped '+result.skipped.length:''))}catch(e){setMessage('Import error: '+String(e))}}
   const saveProject=()=>download(new Blob([JSON.stringify(engine.getProject())],{type:'application/json'}),'StoryMix-project.json')
   const openProject=async(file:File)=>{try{const {readProjectDocument}=await import('@elah/editor');engine.loadProject(readProjectDocument(JSON.parse(await file.text())),{history:'reset',transport:'rewind'});setMessage('Project loaded. Relink media if needed.')}catch(e){setMessage('Open failed: '+String(e))}}
   const addSrt=async(file:File)=>{try{const segments=parseSrt(await file.text());const track=engine.addTrack('elements',{name:'Captions'});engine.batch(()=>{for(const seg of segments)engine.addClip({type:'text',trackId:track.id,name:'Caption',startFrame:Math.round(seg.start*30),durationFrames:Math.max(1,Math.round((seg.end-seg.start)*30)),text:{content:seg.text,fontSize:48,color:'#ffffff',fontFamily:'sans-serif'}})},'Import captions');setMessage('Imported '+segments.length+' captions')}catch(e){setMessage('SRT error: '+String(e))}}
@@ -113,6 +118,8 @@ const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }
       </div>
 
       <div style={{display:'flex',gap:5,alignItems:'center'}}>
+        <input aria-label="Choose video audio or image files" ref={mediaRef} type="file" accept="video/*,audio/*,image/*" multiple style={{display:'none'}} onChange={async e=>{const files=Array.from(e.target.files||[]);if(files.length)await importMedia(files);e.target.value=''}}/>
+        <button className="elah-toolbar-btn" onClick={()=>mediaRef.current?.click()}>Import Media</button>
         <input ref={srtRef} type="file" accept=".srt,text/plain" style={{display:'none'}} onChange={async e=>{const f=e.target.files?.[0];if(f)await addSrt(f);e.target.value=''}}/>
         <input ref={projectRef} type="file" accept=".json" style={{display:'none'}} onChange={async e=>{const f=e.target.files?.[0];if(f)await openProject(f);e.target.value=''}}/>
         <button className="elah-toolbar-btn" onClick={()=>projectRef.current?.click()}>Open</button>
