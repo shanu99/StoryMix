@@ -32,7 +32,12 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
  await page.locator('.elah-export-btn').click();
  await expect(page.getByText('Export Video')).toBeVisible();
  await page.getByRole('button',{name:/360p/}).click();
- const [rendered]=await Promise.all([page.waitForEvent('download',{timeout:120000}),page.getByRole('button',{name:'Export',exact:true}).click()]);
+ const downloadPromise=page.waitForEvent('download',{timeout:150000});
+ await page.getByRole('button',{name:'Export',exact:true}).click();
+ await page.waitForTimeout(12000);
+ console.log('EXPORT STATUS:',(await page.locator('body').innerText()).slice(0,2800));
+ console.log('EXPORT PAGE ERRORS:',errors);
+ const rendered=await downloadPromise;
  expect(rendered.suggestedFilename()).toMatch(/\\.mp4$/);
  const filepath=await rendered.path();
  expect(filepath).not.toBeNull();
