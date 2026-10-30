@@ -14,7 +14,10 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
  await expect(page.locator('canvas').first()).toBeVisible();
  const fixture=join(process.cwd(),'e2e','fixtures','test-video.mp4');
  await page.locator('input[aria-label="Choose video audio or image files"]').setInputFiles(fixture);
- await expect(page.getByText(/Imported 1 files/)).toBeVisible({timeout:45000});
+ await expect(page.getByText(/Imported|Import error/)).toBeVisible({timeout:30000});
+ const resultMessage=await page.getByText(/Imported|Import error/).first().textContent();
+ console.log('IMPORT RESULT:',resultMessage);
+ expect(resultMessage).toContain('Imported 1 files');
  await expect(page.getByText(/placed 1 clips/)).toBeVisible({timeout:30000});
  await page.getByRole('button',{name:'Save'}).click();
  const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'Save'}).click()]);
