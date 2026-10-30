@@ -1,0 +1,36 @@
+name: StoryMix Phase 1 browser acceptance
+on:
+  push:
+    branches: [phase1/core-editor-verification]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: next
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Generate real H264/AAC footage for media-import smoke test
+        run: |
+          mkdir -p e2e/fixtures
+          ffmpeg -hide_banner -loglevel error -y -f lavfi -i testsrc2=size=640x360:rate=30 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 3 -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest -movflags +faststart e2e/fixtures/test-video.mp4
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: phase1-browser-failures
+          path: |
+            next/test-results
+            next/playwright-report
