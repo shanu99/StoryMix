@@ -16,7 +16,7 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
  const fixture=join(process.cwd(),'e2e','fixtures','test-video.mp4');
  await page.locator('input[aria-label="Choose video audio or image files"]').setInputFiles(fixture);
  await expect(page.getByText('This video has audio')).toBeVisible({timeout:20000});
- await page.getByText('Video + Audio',{exact:true}).click();
+ await page.getByText('Video only',{exact:true}).click();
  await expect(page.getByText(/Imported 1 files/)).toBeVisible({timeout:20000});
  await expect(page.getByText(/placed 1 clips/)).toBeVisible({timeout:30000});
  const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'Save'}).click()]);
@@ -32,12 +32,12 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
  await page.locator('.elah-export-btn').click();
  await expect(page.getByText('Export Video')).toBeVisible();
  await page.getByRole('button',{name:/360p/}).click();
- const downloadPromise=page.waitForEvent('download',{timeout:150000});
+ const downloadPromise=page.waitForEvent('download',{timeout:90000}).then(download=>({download})).catch(()=>null);
  await page.getByRole('button',{name:'Export',exact:true}).click();
- await page.waitForTimeout(12000);
- console.log('EXPORT STATUS:',(await page.locator('body').innerText()).slice(0,2800));
- console.log('EXPORT PAGE ERRORS:',errors);
- const rendered=await downloadPromise;
+ const outcome=await Promise.race([downloadPromise,page.getByText('Export failed').waitFor({state:'visible',timeout:90000}).then(()=>({failed:true as const})).catch(()=>null)]);
+ if(outcome && 'failed' in outcome)throw new Error('Video export failed: '+(await page.locator('body').innerText()).slice(0,1200));
+ if(!outcome || !('download' in outcome))throw new Error('Export produced no MP4 download');
+ const rendered=outcome.download;
  expect(rendered.suggestedFilename()).toMatch(/\\.mp4$/);
  const filepath=await rendered.path();
  expect(filepath).not.toBeNull();
