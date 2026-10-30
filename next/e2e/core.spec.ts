@@ -29,7 +29,7 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
  await expect(page.getByText(/Imported 1 captions/)).toBeVisible();
  const [captionFile]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'Export SRT'}).click()]);
  expect(captionFile.suggestedFilename()).toBe('StoryMix-captions.srt');
- await page.getByRole('button',{name:'Export',exact:false}).first().click();
+ await page.locator('.elah-export-btn').click();
  await expect(page.getByText('Export Video')).toBeVisible();
  await page.getByRole('button',{name:/360p/}).click();
  const [rendered]=await Promise.all([page.waitForEvent('download',{timeout:120000}),page.getByRole('button',{name:'Export',exact:true}).click()]);
