@@ -1,0 +1,25 @@
+import {test,expect} from '@playwright/test';
+import {join} from 'node:path';
+test('StoryMix core editor: loads media and offers timeline, editing, project, caption and export controls',async({page})=>{
+ const errors:string[]=[];
+ page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('/');
+ await expect(page.getByText('StoryMix · Turn Moments Into Stories')).toBeVisible();
+ await expect(page.getByRole('button',{name:'Import Media'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Open'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Save'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Import SRT'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Export SRT'})).toBeVisible();
+ await expect(page.getByRole('button',{name:/Export/}).first()).toBeVisible();
+ await expect(page.locator('canvas').first()).toBeVisible();
+ const fixture=join(process.cwd(),'e2e','fixtures','test-video.mp4');
+ await page.locator('input[aria-label="Choose video audio or image files"]').setInputFiles(fixture);
+ await expect(page.getByText(/Imported 1 files/)).toBeVisible({timeout:45000});
+ await expect(page.getByText(/placed 1 clips/)).toBeVisible({timeout:30000});
+ await page.getByRole('button',{name:'Save'}).click();
+ const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'Save'}).click()]);
+ expect(download.suggestedFilename()).toBe('StoryMix-project.json');
+ await page.getByRole('button',{name:/Export/}).last().click();
+ await expect(page.getByText('Export Video')).toBeVisible();
+ expect(errors).toEqual([]);
+});
