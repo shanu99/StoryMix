@@ -21,11 +21,11 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
  await expect(page.getByText(/placed 1 clips/)).toBeVisible({timeout:30000});
  const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'Save'}).click()]);
  expect(download.suggestedFilename()).toBe('StoryMix-project.json');
- const srt='1\\n00:00:00,100 --> 00:00:01,200\\nහෙලෝ StoryMix!\\n';
+ const srt=`1
+00:00:00,100 --> 00:00:01,200
+හෙලෝ StoryMix!
+`;
  await page.locator('input[accept=".srt,text/plain"]').setInputFiles({name:'captions.srt',mimeType:'text/plain',buffer:Buffer.from(srt)});
- await page.waitForTimeout(1000);
- console.log('SRT IMPORT BODY:',(await page.locator('body').innerText()).slice(0,2700));
- await expect(page.getByText(/Imported 1 captions|SRT error:/)).toBeVisible();
  await expect(page.getByText(/Imported 1 captions/)).toBeVisible();
  const [captionFile]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'Export SRT'}).click()]);
  expect(captionFile.suggestedFilename()).toBe('StoryMix-captions.srt');
