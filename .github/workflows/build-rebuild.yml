@@ -1,7 +1,7 @@
 name: Build StoryMix Elah editor
 on:
   push:
-    branches: [rebuild/editor-foundation]
+    branches: [rebuild/editor-foundation, phase1/core-editor-verification]
   pull_request:
     paths: ['next/**','.github/workflows/build-rebuild.yml']
 permissions:
