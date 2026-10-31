@@ -5,7 +5,7 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
  const errors:string[]=[];
  page.on('pageerror',e=>errors.push(e.message));
  await page.goto('/');
- await expect(page.getByText('StoryMix · Turn Moments Into Stories')).toBeVisible();
+ await expect(page.getByText('StoryMix',{exact:true})).toBeVisible();
  await expect(page.getByRole('navigation',{name:'Editor tools'})).toBeVisible();
  await page.getByRole('button',{name:'Effects',exact:true}).click();
  await expect(page.getByText('Planned for future development')).toBeVisible();
@@ -16,9 +16,11 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
  await page.getByRole('button',{name:'Media',exact:true}).click();
  await expect(page.getByText('MEDIA',{exact:true})).toBeVisible();
 
- await expect(page.getByRole('button',{name:'Import Media'})).toBeVisible();
- await expect(page.getByRole('button',{name:'Open'})).toBeVisible();
- await expect(page.getByRole('button',{name:'Save'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Import',exact:true})).toBeVisible();
+ await page.locator('.sm-top-menu').first().locator('summary').click();
+ await expect(page.getByRole('button',{name:'Open project'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Save project'})).toBeVisible();
+ await page.locator('.sm-top-menu').last().locator('summary').click();
  await expect(page.getByRole('button',{name:'Import SRT'})).toBeVisible();
  await expect(page.getByRole('button',{name:'Export SRT'})).toBeVisible();
  await expect(page.getByRole('button',{name:/Export/}).first()).toBeVisible();
@@ -29,7 +31,7 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
  await page.getByText('Video only',{exact:true}).click();
  await expect(page.getByText(/Imported 1 files/)).toBeVisible({timeout:20000});
  await expect(page.getByText(/placed 1 clips/)).toBeVisible({timeout:30000});
- const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'Save'}).click()]);
+ const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'Save project'}).click()]);
  expect(download.suggestedFilename()).toBe('StoryMix-project.json');
  const srt=`1
 00:00:00,100 --> 00:00:01,200
