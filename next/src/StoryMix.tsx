@@ -1,3 +1,4 @@
+import {FolderOpen,Save,Upload,Subtitles,Download,ChevronDown,Undo2,Redo2,Clapperboard,CloudOff} from 'lucide-react'
 import {parseSrt,writeSrt} from './subtitles'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { TextClipProperties } from './TextClipProperties'
@@ -69,76 +70,44 @@ const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }
   const addSrt=async(file:File)=>{try{const segments=parseSrt(await file.text());const track=engine.addTrack('elements',{name:'Captions'});engine.batch(()=>{for(const seg of segments)engine.addClip({type:'text',trackId:track.id,name:'Caption',startFrame:Math.round(seg.start*30),durationFrames:Math.max(1,Math.round((seg.end-seg.start)*30)),text:{content:seg.text,fontSize:48,color:'#ffffff',fontFamily:'sans-serif'}})},'Import captions');setMessage('Imported '+segments.length+' captions')}catch(e){setMessage('SRT error: '+String(e))}}
   const exportSrt=()=>{const p=engine.getProject();const entries=p.tracks.filter(t=>t.kind==='elements'&&/caption/i.test(t.name)).flatMap(t=>(p.clips[t.id]||[]).filter(c=>c.type==='text'&&c.content).map(c=>({start:c.startFrame/30,end:(c.startFrame+c.durationFrames)/30,text:c.content||''})));download(new Blob([writeSrt(entries)],{type:'text/plain;charset=utf-8'}),'StoryMix-captions.srt')}
   return (
-    <header
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        columnGap: 12,
-        rowGap: 6,
-        padding: '6px 16px',
-        minHeight: 46,
-        background: theme.bgSecondary,
-        borderBottom: `1px solid ${theme.border}`,
-        flexShrink: 0,
-      }}
-    >
-      <span
-        style={{
-          fontSize: 13,
-          fontWeight: 700,
-          color: theme.textPrimary,
-          letterSpacing: '-0.02em',
-        }}
-      >
-        StoryMix · Turn Moments Into Stories
-      </span>
-
-      <div style={{ display: 'flex', gap: 4 }}>
-        <button
-          type="button"
-          className="elah-toolbar-btn"
-          style={btnDisabled(!canUndo)}
-          disabled={!canUndo}
-          onClick={() => engine.undo()}
-          title="Undo (Ctrl+Z)"
-        >
-          ↶
-        </button>
-        <button
-          type="button"
-          className="elah-toolbar-btn"
-          style={btnDisabled(!canRedo)}
-          disabled={!canRedo}
-          onClick={() => engine.redo()}
-          title="Redo (Ctrl+Y)"
-        >
-          ↷
-        </button>
+    <header className="sm-topbar">
+      <div className="sm-topbar-brand">
+        <span className="sm-brand-symbol"><Clapperboard size={19}/></span>
+        <span className="sm-wordmark">Story<span>Mix</span></span>
+        <span className="sm-topbar-divider"/>
+        <span className="sm-project-name">Untitled Project</span>
+        <span className="sm-project-local" title="Projects are saved to your device, not the cloud"><CloudOff size={12}/> Local project</span>
       </div>
-
-      <div style={{display:'flex',gap:5,alignItems:'center'}}>
-        <input aria-label="Choose video audio or image files" ref={mediaRef} type="file" accept="video/*,audio/*,image/*" multiple style={{display:'none'}} onChange={async e=>{const files=Array.from(e.target.files||[]);if(files.length)await importMedia(files);e.target.value=''}}/>
-        <button className="elah-toolbar-btn" onClick={()=>mediaRef.current?.click()}>Import Media</button>
-        <input ref={srtRef} type="file" accept=".srt,text/plain" style={{display:'none'}} onChange={async e=>{const f=e.target.files?.[0];if(f)await addSrt(f);e.target.value=''}}/>
-        <input ref={projectRef} type="file" accept=".json" style={{display:'none'}} onChange={async e=>{const f=e.target.files?.[0];if(f)await openProject(f);e.target.value=''}}/>
-        <button className="elah-toolbar-btn" onClick={()=>projectRef.current?.click()}>Open</button>
-        <button className="elah-toolbar-btn" onClick={saveProject}>Save</button>
-        <button className="elah-toolbar-btn" onClick={()=>srtRef.current?.click()}>Import SRT</button>
-        <button className="elah-toolbar-btn" onClick={exportSrt}>Export SRT</button>
-        {message&&<span style={{fontSize:10,color:'#a9d9ed',maxWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={message}>{message}</span>}
+      <div className="sm-topbar-actions">
+        <button className="sm-top-action sm-top-undo" type="button" disabled={!canUndo} onClick={()=>engine.undo()} title="Undo (Ctrl+Z)" aria-label="Undo"><Undo2 size={16}/></button>
+        <button className="sm-top-action sm-top-undo" type="button" disabled={!canRedo} onClick={()=>engine.redo()} title="Redo (Ctrl+Y)" aria-label="Redo"><Redo2 size={16}/></button>
+        <span className="sm-topbar-divider"/>
+        <button className="sm-top-action" type="button" onClick={()=>mediaRef.current?.click()}><Upload size={15}/> <span>Import</span></button>
+        <div className="sm-top-menu-container">
+          <details className="sm-top-menu">
+            <summary className="sm-top-action"><FolderOpen size={16}/><span>Project</span><ChevronDown size={12}/></summary>
+            <div className="sm-menu-popover" role="group" aria-label="Project actions">
+              <button type="button" onClick={()=>projectRef.current?.click()}><FolderOpen size={15}/>Open project</button>
+              <button type="button" onClick={saveProject}><Save size={15}/>Save project</button>
+            </div>
+          </details>
+        </div>
+        <div className="sm-top-menu-container">
+          <details className="sm-top-menu">
+            <summary className="sm-top-action"><Subtitles size={16}/><span>Captions</span><ChevronDown size={12}/></summary>
+            <div className="sm-menu-popover" role="group" aria-label="Caption actions">
+              <button type="button" onClick={()=>srtRef.current?.click()}><Upload size={15}/>Import SRT</button>
+              <button type="button" onClick={exportSrt}><Download size={15}/>Export SRT</button>
+            </div>
+          </details>
+        </div>
+        <input aria-label="Choose video audio or image files" ref={mediaRef} type="file" accept="video/*,audio/*,image/*" multiple hidden onChange={async e=>{const files=Array.from(e.target.files||[]);if(files.length)await importMedia(files);e.target.value=''}}/>
+        <input ref={srtRef} type="file" accept=".srt,text/plain" hidden onChange={async e=>{const file=e.target.files?.[0];if(file)await addSrt(file);e.target.value=''}}/>
+        <input ref={projectRef} type="file" accept=".json" hidden onChange={async e=>{const file=e.target.files?.[0];if(file)await openProject(file);e.target.value=''}}/>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button
-          type="button"
-          className="elah-export-btn"
-          style={btnDisabled(false)}
-          onClick={onExport}
-          title="Export to MP4"
-        >
-          ⬇ Export
-        </button>
+      <div className="sm-topbar-right">
+        {message&&<output className="sm-topbar-message" title={message}>{message}</output>}
+        <button type="button" className="sm-top-export elah-export-btn" onClick={onExport} title="Export to MP4"><Download size={16}/> Export</button>
       </div>
     </header>
   )
