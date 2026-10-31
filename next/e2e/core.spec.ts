@@ -31,7 +31,8 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
  await page.getByText('Video only',{exact:true}).click();
  await expect(page.getByText(/Imported 1 files/)).toBeVisible({timeout:20000});
  await expect(page.getByText(/placed 1 clips/)).toBeVisible({timeout:30000});
- const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'Save project'}).click()]);
+ await page.locator('.sm-top-menu').first().locator('summary').click();
+ const [download]=await Promise.all([page.waitForEvent('download',{timeout:12000}),page.getByRole('button',{name:'Save project'}).click()]);
  expect(download.suggestedFilename()).toBe('StoryMix-project.json');
  const srt=`1
 00:00:00,100 --> 00:00:01,200
@@ -39,7 +40,8 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
 `;
  await page.locator('input[accept=".srt,text/plain"]').setInputFiles({name:'captions.srt',mimeType:'text/plain',buffer:Buffer.from(srt)});
  await expect(page.getByText(/Imported 1 captions/)).toBeVisible();
- const [captionFile]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'Export SRT'}).click()]);
+ await page.locator('.sm-top-menu').last().locator('summary').click();
+ const [captionFile]=await Promise.all([page.waitForEvent('download',{timeout:12000}),page.getByRole('button',{name:'Export SRT'}).click()]);
  expect(captionFile.suggestedFilename()).toBe('StoryMix-captions.srt');
  await page.locator('.elah-export-btn').click();
  await expect(page.getByText('Export Video')).toBeVisible();

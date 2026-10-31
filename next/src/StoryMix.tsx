@@ -63,7 +63,7 @@ const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }
   const srtRef = useRef<HTMLInputElement>(null)
   const projectRef = useRef<HTMLInputElement>(null)
   const [message,setMessage]=useState('')
-  const download=(blob:Blob,name:string)=>{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000)}
+  const download=(blob:Blob,name:string)=>{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}
   const importMedia=async(files:File[])=>{setMessage('Importing '+files.length+' media files...');try{const result=await importFiles(files);let added=0;for(const asset of result.imported){const inserted=await insertMediaAsset(engine,asset.id,{desiredStartFrame:engine.getTotalFrames()});if(inserted.ok)added++}setMessage('Imported '+result.imported.length+' files, placed '+added+' clips'+(result.skipped.length?'; skipped '+result.skipped.length:''))}catch(e){setMessage('Import error: '+String(e))}}
   const saveProject=()=>download(new Blob([JSON.stringify(engine.getProject())],{type:'application/json'}),'StoryMix-project.json')
   const openProject=async(file:File)=>{try{const {readProjectDocument}=await import('@elah/editor');engine.loadProject(readProjectDocument(JSON.parse(await file.text())),{history:'reset',transport:'rewind'});setMessage('Project loaded. Relink media if needed.')}catch(e){setMessage('Open failed: '+String(e))}}
