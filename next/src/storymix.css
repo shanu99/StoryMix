@@ -59,3 +59,31 @@
 .sm-topbar-message{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#91bdd5;font-size:11px}
 @media(max-width:1270px){.sm-topbar{grid-template-columns:minmax(190px,1fr) auto minmax(95px,.7fr);padding:0 10px;gap:5px}.sm-project-local{display:none}.sm-topbar-actions{gap:0}.sm-top-action{padding:0 8px}.sm-topbar-message{max-width:100px}}
 @media(max-width:900px){.sm-topbar{grid-template-columns:auto 1fr auto}.sm-project-name,.sm-topbar-brand .sm-topbar-divider{display:none}.sm-topbar-actions{justify-content:flex-end}.sm-top-action span{display:none}.sm-top-action{padding:0 7px}.sm-topbar-message{display:none}}
+
+
+/* LOCKED STORYMIX V1 GLASS + 3D ICE-BLUE DESIGN SYSTEM */
+.sm-hybrid-editor{
+ --sm-glass:rgba(17,25,35,.74);--sm-glass-deep:rgba(11,17,26,.88);
+ --sm-glass-edge:rgba(214,238,255,.105);--sm-glass-highlight:rgba(255,255,255,.07);
+ --sm-glass-shadow:0 14px 36px rgba(0,0,0,.29);
+ --sm-blue-gradient:linear-gradient(180deg,#53d8ff 0%,#16b9f5 55%,#0c8fe8 100%);
+ --sm-blue-highlight:inset 0 1px 0 rgba(255,255,255,.3);
+ --sm-blue-shadow:0 7px 18px rgba(22,185,245,.24),inset 0 1px 0 rgba(255,255,255,.28);
+}
+.sm-hybrid-editor .sm-topbar{background:linear-gradient(160deg,rgba(28,42,57,.85),rgba(12,21,32,.87));border-bottom-color:var(--sm-glass-edge);box-shadow:inset 0 1px 0 var(--sm-glass-highlight),0 5px 16px rgba(0,0,0,.22);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.sm-hybrid-editor .sm-workspace-navigation{background:linear-gradient(180deg,rgba(26,39,54,.85),rgba(10,17,27,.89));border-right:1px solid var(--sm-glass-edge);box-shadow:inset 1px 0 0 rgba(255,255,255,.035);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.sm-hybrid-editor .sm-workspace-pane{background:linear-gradient(155deg,rgba(25,37,51,.87),rgba(14,22,33,.89));border-right:1px solid var(--sm-glass-edge);box-shadow:inset 1px 0 0 var(--sm-glass-highlight);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.sm-hybrid-editor .sm-inspector{background:linear-gradient(150deg,rgba(25,36,50,.9),rgba(12,20,30,.91));border-left:1px solid var(--sm-glass-edge);box-shadow:inset 1px 0 0 var(--sm-glass-highlight);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.sm-hybrid-editor .sm-workspace-heading,.sm-hybrid-editor .sm-inspector-caption{border-bottom:1px solid var(--sm-glass-edge)}
+.sm-hybrid-editor .sm-top-menu .sm-menu-popover{background:linear-gradient(155deg,rgba(38,55,72,.94),rgba(18,29,42,.96));border:1px solid rgba(201,232,255,.17);box-shadow:var(--sm-glass-shadow),inset 0 1px 0 var(--sm-glass-highlight);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
+.sm-hybrid-editor .sm-top-menu .sm-menu-popover button:hover{background:rgba(60,128,173,.18)}
+.sm-hybrid-editor .sm-nav-item.is-selected{background:linear-gradient(160deg,rgba(83,216,255,.2),rgba(13,115,173,.12));border-color:rgba(83,216,255,.3);box-shadow:inset 0 1px 0 rgba(255,255,255,.11),0 4px 14px rgba(4,37,56,.2)}
+.sm-hybrid-editor .sm-brand-symbol,.sm-hybrid-editor .sm-top-export.elah-export-btn{background:var(--sm-blue-gradient)!important;border-color:rgba(165,238,255,.4)!important;color:#061923!important;box-shadow:var(--sm-blue-shadow);text-shadow:none}
+.sm-hybrid-editor .sm-top-export.elah-export-btn:hover{background:linear-gradient(180deg,#7be6ff,#2dcafa 54%,#139eea)!important;box-shadow:0 10px 23px rgba(22,185,245,.34),inset 0 1px 0 rgba(255,255,255,.38);transform:translateY(-1px)}
+.sm-hybrid-editor .sm-top-export.elah-export-btn:active{background:linear-gradient(180deg,#0c8fe8,#16b9f5)!important;transform:translateY(1px);box-shadow:inset 0 2px 6px rgba(1,31,54,.35)}
+.sm-hybrid-editor .sm-top-export{transition:transform .14s ease,box-shadow .15s ease,background .15s ease}
+.sm-hybrid-editor .sm-top-action:hover{background:rgba(93,156,203,.13);border-color:rgba(184,218,245,.16)}
+.sm-hybrid-editor .sm-coming-soon,.sm-hybrid-editor .sm-panel-message{background:linear-gradient(150deg,rgba(36,55,73,.64),rgba(19,30,44,.73));border:1px solid var(--sm-glass-edge);box-shadow:inset 0 1px 0 var(--sm-glass-highlight);backdrop-filter:blur(18px)}
+.sm-hybrid-editor .sm-planned-label{background:rgba(255,255,255,.035);border-color:rgba(255,255,255,.12)}
+.sm-hybrid-editor .elah-toolbar-btn:focus-visible,.sm-hybrid-editor button:focus-visible,.sm-hybrid-editor summary:focus-visible{outline:2px solid #53d8ff;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){.sm-hybrid-editor .sm-top-export{transition:none!important;transform:none!important}}
