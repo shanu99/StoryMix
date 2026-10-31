@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { TextClipProperties } from './TextClipProperties'
 import { ExportModal } from './ExportModal'
 import { btnDisabled, theme } from './theme'
+import {WorkspaceNavigation,WorkspacePanel,AudioPanelInfo,CaptionsPanelInfo,type WorkspaceSection} from './WorkspaceNavigation'
 import {
   AssetPanel,
   ElementsPanel,
@@ -354,6 +355,7 @@ export default function ProductionEditor() {
   const demuxerFactoryRef = useRef(createDefaultDemuxerFactory())
 
   const [showExportModal, setShowExportModal] = useState(false)
+  const [activeTool, setActiveTool] = useState<WorkspaceSection>('Media')
   const [timelineHeight, setTimelineHeight] = useState(236)
   const resizeRef = useRef<{ startY: number; startHeight: number } | null>(null)
 
@@ -418,7 +420,7 @@ export default function ProductionEditor() {
       stage={{ width: 1920, height: 1080 }}
     >
       <div
-        className="elah-root"
+        className="elah-root sm-hybrid-editor"
         style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
       >
         <AppHeader onExport={() => setShowExportModal(true)} />
@@ -430,24 +432,14 @@ export default function ProductionEditor() {
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-          <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                width: 220,
-                flexShrink: 0,
-                borderRight: `1px solid ${theme.border}`,
-                background: theme.bgPanel,
-                minHeight: 0,
-                overflow: 'hidden',
-              }}
-            >
-              <ElementsPanel
-                style={{ flexShrink: 0, borderBottom: `1px solid ${theme.border}` }}
-              />
-              <AssetPanel style={{ flex: 1, minHeight: 0 }} />
-            </div>
+          <div className="sm-main-workspace" style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+            <WorkspaceNavigation active={activeTool} onChange={setActiveTool} />
+            <WorkspacePanel active={activeTool}>
+              {activeTool==='Media' ? <AssetPanel style={{flex:1,minHeight:0}} /> :
+               activeTool==='Text' ? <ElementsPanel style={{flex:1,minHeight:0}} /> :
+               activeTool==='Audio' ? <AudioPanelInfo /> :
+               activeTool==='Captions' ? <CaptionsPanelInfo /> : undefined}
+            </WorkspacePanel>
 
             <div
               style={{
@@ -468,7 +460,7 @@ export default function ProductionEditor() {
               <PreviewTransport />
             </div>
 
-            <TextClipProperties />
+            <aside className="sm-inspector" aria-label="Properties inspector"><div className="sm-inspector-caption">INSPECTOR <span>PROPERTIES</span></div><TextClipProperties /></aside>
           </div>
 
           <TimelineControls timelineRef={timelineRef} />
