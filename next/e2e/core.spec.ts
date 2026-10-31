@@ -45,7 +45,7 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
  await expect(page.getByText('Export Video')).toBeVisible();
  await page.getByRole('button',{name:/360p/}).click();
  const downloadPromise=page.waitForEvent('download',{timeout:90000}).then(download=>({download})).catch(()=>null);
- await page.getByRole('button',{name:'Export',exact:true}).click();
+ await page.getByRole('button',{name:'Export',exact:true}).last().click();
  const outcome=await Promise.race([downloadPromise,page.getByText('Export failed').waitFor({state:'visible',timeout:90000}).then(()=>({failed:true as const})).catch(()=>null)]);
  if(outcome && 'failed' in outcome)throw new Error('Video export failed: '+(await page.locator('body').innerText()).slice(0,1200));
  if(!outcome || !('download' in outcome))throw new Error('Export produced no MP4 download');
