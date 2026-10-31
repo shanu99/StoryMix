@@ -48,7 +48,7 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
  if(outcome && 'failed' in outcome)throw new Error('Video export failed: '+(await page.locator('body').innerText()).slice(0,1200));
  if(!outcome || !('download' in outcome))throw new Error('Export produced no MP4 download');
  const rendered=outcome.download;
- expect(rendered.suggestedFilename()).toMatch(/\\.mp4$/);
+ expect(rendered.suggestedFilename()).toMatch(/\.mp4$/);
  const filepath=await rendered.path();
  expect(filepath).not.toBeNull();
  const probe=JSON.parse(execFileSync('ffprobe',['-v','error','-show_streams','-show_format','-of','json',filepath!],{encoding:'utf8'}));
