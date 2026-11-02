@@ -88,7 +88,7 @@ const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }
       if(!replaced){setMessage('No matching filenames. Select the original media files.');return}
       await importFiles(files);
       engine.loadProject({...project,clips},{history:'reset',transport:'preserve'});
-      const remaining=checkMissing({...project,clips}).filter(name=>!byName.has(name.toLowerCase()));
+      const remaining=missingMedia.filter(name=>!byName.has(name.toLowerCase()));
       setMissingMedia(remaining);
       setMessage('Relinked '+replaced+' clips'+(remaining.length?'; '+remaining.length+' still need media':''));
     }catch(e){setMessage('Relink failed: '+String(e))}
