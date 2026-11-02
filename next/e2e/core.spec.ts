@@ -57,7 +57,12 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
  await page.locator('input[accept=".srt,text/plain"]').setInputFiles({name:'captions.srt',mimeType:'text/plain',buffer:Buffer.from(srt)});
  await expect(page.getByText(/Imported 1 captions/)).toBeVisible();
  if((await page.locator('.sm-top-menu').last().getAttribute('open'))===null)await page.locator('.sm-top-menu').last().locator('summary').click();
- const [captionFile]=await Promise.all([page.waitForEvent('download',{timeout:12000}),page.getByRole('button',{name:'Export SRT'}).click()]);
+ const captionWait=page.waitForEvent('download',{timeout:5000}).catch(()=>null);
+ await page.getByRole('button',{name:'Export SRT'}).click();
+ console.log('SRT EXPORT STATUS:',(await page.locator('body').innerText()).slice(0,600));
+ const captionFile=await captionWait;
+ expect(captionFile,'SRT export should download file').not.toBeNull();
+ if(!captionFile)throw new Error('SRT Export did not download');
  expect(captionFile.suggestedFilename()).toBe('StoryMix-captions.srt');
  await page.locator('.elah-export-btn').click();
  await expect(page.getByText('Export Video')).toBeVisible();
