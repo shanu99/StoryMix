@@ -42,7 +42,7 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
 
  await page.locator('.sm-top-menu').first().locator('summary').click();
  const saveAttempt=page.waitForEvent('download',{timeout:10000}).catch(()=>null);
- await page.getByRole('button',{name:'Save project'}).click();
+ await page.keyboard.press('Control+s');
  await page.waitForTimeout(700);
  console.log('SAVE DIAGNOSTIC:',(await page.locator('body').innerText()).slice(0,650));
  console.log('BROWSER ERRORS:',errors);
