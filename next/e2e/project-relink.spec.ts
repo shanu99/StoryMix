@@ -11,7 +11,7 @@ test('project JSON can be reopened after reload and original video relinked',asy
   await page.locator('.sm-top-menu').first().locator('summary').click()
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message))
   const savedPromise=page.waitForEvent('download',{timeout:6000}).catch(()=>null)
-  await page.keyboard.press('Control+s')
+  await page.getByRole('button',{name:'Save project'}).click({timeout:8000})
   console.log('SAVE UI DIAG:',(await page.locator('body').innerText()).slice(0,1200),'PAGE ERRORS:',errors)
   const saved=await savedPromise
   expect(saved,'Save should trigger JSON download').not.toBeNull()
