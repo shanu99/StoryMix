@@ -62,11 +62,37 @@ const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }
   const {importFiles}=useMediaLibrary()
   const srtRef = useRef<HTMLInputElement>(null)
   const projectRef = useRef<HTMLInputElement>(null)
+  const relinkRef = useRef<HTMLInputElement>(null)
+  const [missingMedia,setMissingMedia]=useState<string[]>([])
   const [message,setMessage]=useState('')
   const download=(blob:Blob,name:string)=>{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}
   const importMedia=async(files:File[])=>{setMessage('Importing '+files.length+' media files...');try{const result=await importFiles(files);let added=0;for(const asset of result.imported){const inserted=await insertMediaAsset(engine,asset.id,{desiredStartFrame:engine.getTotalFrames()});if(inserted.ok)added++}setMessage('Imported '+result.imported.length+' files, placed '+added+' clips'+(result.skipped.length?'; skipped '+result.skipped.length:''))}catch(e){setMessage('Import error: '+String(e))}}
-  const saveProject=()=>download(new Blob([JSON.stringify(engine.getProject())],{type:'application/json'}),'StoryMix-project.json')
-  const openProject=async(file:File)=>{try{const {readProjectDocument}=await import('@elah/editor');engine.loadProject(readProjectDocument(JSON.parse(await file.text())),{history:'reset',transport:'rewind'});setMessage('Project loaded. Relink media if needed.')}catch(e){setMessage('Open failed: '+String(e))}}
+  const saveProject=()=>{const project=engine.getProject();download(new Blob([JSON.stringify(project,null,2)],{type:'application/json'}),'StoryMix-project.json');setMessage('Project saved. Keep original media files for relinking.')}
+  const checkMissing=(project:ReturnType<typeof engine.getProject>)=>Object.values(project.clips).flat().filter(clip=>['video','audio','image'].includes(clip.type)&&typeof clip.src==='string'&&clip.src.startsWith('blob:')).map(clip=>clip.name)
+  const openProject=async(file:File)=>{try{const {readProjectDocument}=await import('@elah/editor');const project=readProjectDocument(JSON.parse(await file.text()));engine.loadProject(project,{history:'reset',transport:'rewind'});const missing=checkMissing(project);setMissingMedia(missing);setMessage(missing.length?'Project loaded. Relink '+missing.length+' local media files.':'Project loaded.')}catch(e){setMessage('Open failed: '+String(e))}}
+  const relinkFiles=async(files:File[])=>{
+    if(!files.length)return;
+    try{
+      const project=engine.getProject();
+      const byName=new Map(files.map(f=>[f.name.toLowerCase(),f]));
+      let replaced=0;
+      const urls=new Map<string,string>();
+      const clips=Object.fromEntries(Object.entries(project.clips).map(([track,bucket])=>[track,bucket.map(clip=>{
+        if(!['video','audio','image'].includes(clip.type)||typeof clip.src!=='string')return clip;
+        const match=byName.get(clip.name.toLowerCase())||byName.get(decodeURIComponent(clip.src.split('/').pop()||'').toLowerCase());
+        if(!match)return clip;
+        let url=urls.get(match.name);if(!url){url=URL.createObjectURL(match);urls.set(match.name,url)}
+        replaced++;
+        return {...clip,src:url};
+      })]));
+      if(!replaced){setMessage('No matching filenames. Select the original media files.');return}
+      await importFiles(files);
+      engine.loadProject({...project,clips},{history:'reset',transport:'preserve'});
+      const remaining=checkMissing({...project,clips}).filter(name=>!byName.has(name.toLowerCase()));
+      setMissingMedia(remaining);
+      setMessage('Relinked '+replaced+' clips'+(remaining.length?'; '+remaining.length+' still need media':''));
+    }catch(e){setMessage('Relink failed: '+String(e))}
+  }
   const addSrt=async(file:File)=>{try{const segments=parseSrt(await file.text());const track=engine.addTrack('elements',{name:'Captions'});engine.batch(()=>{for(const seg of segments)engine.addClip({type:'text',trackId:track.id,name:'Caption',startFrame:Math.round(seg.start*30),durationFrames:Math.max(1,Math.round((seg.end-seg.start)*30)),text:{content:seg.text,fontSize:48,color:'#ffffff',fontFamily:'sans-serif'}})},'Import captions');setMessage('Imported '+segments.length+' captions')}catch(e){setMessage('SRT error: '+String(e))}}
   const exportSrt=()=>{const p=engine.getProject();const entries=p.tracks.filter(t=>t.kind==='elements'&&/caption/i.test(t.name)).flatMap(t=>(p.clips[t.id]||[]).filter(c=>c.type==='text'&&c.content).map(c=>({start:c.startFrame/30,end:(c.startFrame+c.durationFrames)/30,text:c.content||''})));download(new Blob([writeSrt(entries)],{type:'text/plain;charset=utf-8'}),'StoryMix-captions.srt')}
   return (
@@ -89,6 +115,7 @@ const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }
             <div className="sm-menu-popover" role="group" aria-label="Project actions">
               <button type="button" onClick={()=>projectRef.current?.click()}><FolderOpen size={15}/>Open project</button>
               <button type="button" onClick={saveProject}><Save size={15}/>Save project</button>
+              <button type="button" onClick={()=>relinkRef.current?.click()}><Upload size={15}/>Relink media files</button>
             </div>
           </details>
         </div>
@@ -103,10 +130,11 @@ const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }
         </div>
         <input aria-label="Choose video audio or image files" ref={mediaRef} type="file" accept="video/*,audio/*,image/*" multiple hidden onChange={async e=>{const files=Array.from(e.target.files||[]);if(files.length)await importMedia(files);e.target.value=''}}/>
         <input ref={srtRef} type="file" accept=".srt,text/plain" hidden onChange={async e=>{const file=e.target.files?.[0];if(file)await addSrt(file);e.target.value=''}}/>
+        <input ref={relinkRef} type="file" accept="video/*,audio/*,image/*" multiple hidden aria-label="Relink original media files" onChange={async e=>{await relinkFiles(Array.from(e.target.files||[]));e.target.value=''}}/>
         <input ref={projectRef} type="file" accept=".json" hidden onChange={async e=>{const file=e.target.files?.[0];if(file)await openProject(file);e.target.value=''}}/>
       </div>
       <div className="sm-topbar-right">
-        {message&&<output className="sm-topbar-message" title={message}>{message}</output>}
+        {message&&<output className="sm-topbar-message" title={message}>{message}</output>}{missingMedia.length>0&&<button type="button" className="sm-top-action" onClick={()=>relinkRef.current?.click()} title="Relink missing original media">Relink ({missingMedia.length})</button>}
         <button type="button" className="sm-top-export elah-export-btn" onClick={onExport} title="Export to MP4"><Download size={16}/> Export</button>
       </div>
     </header>
