@@ -32,6 +32,8 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
  await expect(page.getByText(/Imported 1 files/)).toBeVisible({timeout:20000});
  await expect(page.getByText(/placed 1 clips/)).toBeVisible({timeout:30000});
  await page.getByText('test-video.mp4',{exact:true}).last().click();
+ console.log('CLIP INSPECTOR:',(await page.locator('.sm-inspector').innerText()).slice(0,900));
+ console.log('MATCHED CLIPS:',await page.getByText('test-video.mp4',{exact:true}).count());
  await expect(page.getByRole('region',{name:'Timing controls'})).toBeVisible();
  await expect(page.getByRole('region',{name:'Transform controls'})).toBeVisible();
  await expect(page.getByRole('region',{name:'Audio controls'})).toBeVisible();
