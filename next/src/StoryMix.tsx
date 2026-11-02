@@ -95,7 +95,7 @@ const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }
     }catch(e){setMessage('Relink failed: '+String(e))}
   }
   const addSrt=async(file:File)=>{try{const segments=parseSrt(await file.text());const track=engine.addTrack('elements',{name:'Captions'});engine.batch(()=>{for(const seg of segments)engine.addClip({type:'text',trackId:track.id,name:'Caption',startFrame:Math.round(seg.start*30),durationFrames:Math.max(1,Math.round((seg.end-seg.start)*30)),text:{content:seg.text,fontSize:48,color:'#ffffff',fontFamily:'sans-serif'}})},'Import captions');setMessage('Imported '+segments.length+' captions')}catch(e){setMessage('SRT error: '+String(e))}}
-  const exportSrt=()=>{const p=engine.getProject();const entries=p.tracks.filter(t=>t.kind==='elements'&&/caption/i.test(t.name)).flatMap(t=>(p.clips[t.id]||[]).filter(c=>c.type==='text'&&c.content).map(c=>({start:c.startFrame/30,end:(c.startFrame+c.durationFrames)/30,text:c.content||''})));download(new Blob([writeSrt(entries)],{type:'text/plain;charset=utf-8'}),'StoryMix-captions.srt')}
+  const exportSrt=()=>{try{const p=engine.getProject();const entries=p.tracks.filter(t=>t.kind==='elements'&&/caption/i.test(t.name)).flatMap(t=>(p.clips[t.id]||[]).filter(c=>c.type==='text'&&c.content).map(c=>({start:c.startFrame/30,end:(c.startFrame+c.durationFrames)/30,text:c.content||''})));download(new Blob([writeSrt(entries)],{type:'text/plain;charset=utf-8'}),'StoryMix-captions.srt');setMessage('SRT exported: '+entries.length+' captions')}catch(e){setMessage('SRT export failed: '+String(e));console.error('StoryMix SRT export',e)}}
   return (
     <header className="sm-topbar">
       <div className="sm-topbar-brand">
