@@ -31,6 +31,11 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
  await page.getByText('Video only',{exact:true}).click();
  await expect(page.getByText(/Imported 1 files/)).toBeVisible({timeout:20000});
  await expect(page.getByText(/placed 1 clips/)).toBeVisible({timeout:30000});
+ await page.getByText('test-video.mp4',{exact:true}).last().click();
+ await expect(page.getByRole('region',{name:'Timing controls'})).toBeVisible();
+ await expect(page.getByRole('region',{name:'Transform controls'})).toBeVisible();
+ await expect(page.getByRole('region',{name:'Audio controls'})).toBeVisible();
+
  await page.locator('.sm-top-menu').first().locator('summary').click();
  const saveAttempt=page.waitForEvent('download',{timeout:10000}).catch(()=>null);
  await page.getByRole('button',{name:'Save project'}).click();
