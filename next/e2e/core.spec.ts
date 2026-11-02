@@ -17,10 +17,10 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
  await expect(page.getByText('MEDIA',{exact:true})).toBeVisible();
 
  await expect(page.getByRole('button',{name:'Import',exact:true})).toBeVisible();
- await page.locator('.sm-top-menu').first().locator('summary').click();
+ if((await page.locator('.sm-top-menu').first().getAttribute('open'))===null)await page.locator('.sm-top-menu').first().locator('summary').click();
  await expect(page.getByRole('button',{name:'Open project'})).toBeVisible();
  await expect(page.getByRole('button',{name:'Save project'})).toBeVisible();
- await page.locator('.sm-top-menu').last().locator('summary').click();
+ if((await page.locator('.sm-top-menu').last().getAttribute('open'))===null)await page.locator('.sm-top-menu').last().locator('summary').click();
  await expect(page.getByRole('button',{name:'Import SRT'})).toBeVisible();
  await expect(page.getByRole('button',{name:'Export SRT'})).toBeVisible();
  await expect(page.getByRole('button',{name:/Export/}).first()).toBeVisible();
@@ -31,8 +31,24 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
  await page.getByText('Video only',{exact:true}).click();
  await expect(page.getByText(/Imported 1 files/)).toBeVisible({timeout:20000});
  await expect(page.getByText(/placed 1 clips/)).toBeVisible({timeout:30000});
+ await expect(page.locator('[data-clip-type="video"]').first()).toBeVisible()
+ await page.locator('[data-clip-type="video"]').first().click({position:{x:35,y:20}})
+ await expect(page.locator('[data-clip-type="video"][data-selected="true"]').first()).toBeVisible()
+ console.log('CLIP INSPECTOR:',(await page.locator('.sm-inspector').innerText()).slice(0,900));
+ console.log('MATCHED CLIPS:',await page.getByText('test-video.mp4',{exact:true}).count());
+ await expect(page.getByRole('region',{name:'Timing controls'})).toBeVisible();
+ await expect(page.getByRole('region',{name:'Transform controls'})).toBeVisible();
+ await expect(page.getByRole('region',{name:'Audio controls'})).toBeVisible();
+
  await page.locator('.sm-top-menu').first().locator('summary').click();
- const [download]=await Promise.all([page.waitForEvent('download',{timeout:12000}),page.getByRole('button',{name:'Save project'}).click()]);
+ const saveAttempt=page.waitForEvent('download',{timeout:10000}).catch(()=>null);
+ await page.keyboard.press('Control+s');
+ await page.waitForTimeout(700);
+ console.log('SAVE DIAGNOSTIC:',(await page.locator('body').innerText()).slice(0,650));
+ console.log('BROWSER ERRORS:',errors);
+ const download=await saveAttempt;
+ expect(download,'Project Save must trigger real download').not.toBeNull();
+ if(!download)throw new Error('Project Save download did not occur');
  expect(download.suggestedFilename()).toBe('StoryMix-project.json');
  const srt=`1
 00:00:00,100 --> 00:00:01,200
@@ -40,8 +56,13 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
 `;
  await page.locator('input[accept=".srt,text/plain"]').setInputFiles({name:'captions.srt',mimeType:'text/plain',buffer:Buffer.from(srt)});
  await expect(page.getByText(/Imported 1 captions/)).toBeVisible();
- await page.locator('.sm-top-menu').last().locator('summary').click();
- const [captionFile]=await Promise.all([page.waitForEvent('download',{timeout:12000}),page.getByRole('button',{name:'Export SRT'}).click()]);
+ if((await page.locator('.sm-top-menu').last().getAttribute('open'))===null)await page.locator('.sm-top-menu').last().locator('summary').click();
+ const captionWait=page.waitForEvent('download',{timeout:5000}).catch(()=>null);
+ await page.getByRole('button',{name:'Export SRT'}).click();
+ console.log('SRT EXPORT STATUS:',(await page.locator('body').innerText()).slice(0,600));
+ const captionFile=await captionWait;
+ expect(captionFile,'SRT export should download file').not.toBeNull();
+ if(!captionFile)throw new Error('SRT Export did not download');
  expect(captionFile.suggestedFilename()).toBe('StoryMix-captions.srt');
  await page.locator('.elah-export-btn').click();
  await expect(page.getByText('Export Video')).toBeVisible();

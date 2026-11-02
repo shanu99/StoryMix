@@ -87,3 +87,7 @@
 .sm-hybrid-editor .sm-planned-label{background:rgba(255,255,255,.035);border-color:rgba(255,255,255,.12)}
 .sm-hybrid-editor .elah-toolbar-btn:focus-visible,.sm-hybrid-editor button:focus-visible,.sm-hybrid-editor summary:focus-visible{outline:2px solid #53d8ff;outline-offset:2px}
 @media(prefers-reduced-motion:reduce){.sm-hybrid-editor .sm-top-export{transition:none!important;transform:none!important}}
+
+/* Keep project and captions dropdowns above preview canvas and timeline gestures. */
+.sm-hybrid-editor .sm-topbar{position:relative;z-index:1000;isolation:isolate}
+.sm-hybrid-editor .sm-menu-popover{z-index:1200}
