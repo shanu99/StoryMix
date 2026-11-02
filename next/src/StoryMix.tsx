@@ -1,7 +1,7 @@
 import {FolderOpen,Save,Upload,Subtitles,Download,ChevronDown,Undo2,Redo2,Clapperboard,CloudOff} from 'lucide-react'
 import {parseSrt,writeSrt} from './subtitles'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import { TextClipProperties } from './TextClipProperties'
+import { ClipProperties } from './ClipProperties'
 import { ExportModal } from './ExportModal'
 import { btnDisabled, theme } from './theme'
 import {WorkspaceNavigation,WorkspacePanel,AudioPanelInfo,CaptionsPanelInfo,type WorkspaceSection} from './WorkspaceNavigation'
@@ -457,7 +457,7 @@ export default function ProductionEditor() {
               <PreviewTransport />
             </div>
 
-            <aside className="sm-inspector" aria-label="Properties inspector"><div className="sm-inspector-caption">INSPECTOR <span>PROPERTIES</span></div><TextClipProperties /></aside>
+            <aside className="sm-inspector" aria-label="Properties inspector"><div className="sm-inspector-caption">INSPECTOR <span>PROPERTIES</span></div><ClipProperties /></aside>
           </div>
 
           <TimelineControls timelineRef={timelineRef} />
