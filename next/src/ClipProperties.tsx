@@ -35,9 +35,9 @@ export function ClipProperties(){
       <button className="sm-top-action" onClick={()=>update({crop:undefined,transform:undefined})}>Reset crop & transform</button>
     </section>}
     {hasAudio&&<section aria-label="Audio controls"><div className="sm-inspector-group-heading">AUDIO</div>
-      <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,fontSize:12}}><input type="checkbox" checked={clip.audio?.muted??false} onChange={e=>update({audio:{...clip.audio,muted:e.target.checked}})}/>Mute</label>
+      <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,fontSize:12}}><input type="checkbox" checked={(clip.volume??1)===0} onChange={e=>update({volume:e.target.checked?0:1})}/>Mute</label>
       <NumberField label="Volume (%)" value={(clip.volume??1)*100} min={0} max={100} onChange={v=>update({volume:v/100})}/>
-      <div style={{display:'flex',gap:9}}><NumberField label="Fade in (sec)" value={clip.audio?.fadeInSec??0} min={0} max={60} step={.1} onChange={v=>update({audio:{...clip.audio,fadeInSec:v}})}/><NumberField label="Fade out (sec)" value={clip.audio?.fadeOutSec??0} min={0} max={60} step={.1} onChange={v=>update({audio:{...clip.audio,fadeOutSec:v}})}/></div>
+      <div style={{fontSize:10,color:'#849bb0',lineHeight:1.5}}>Audio fades require a compatible rendering pipeline and are not enabled in this build.</div>
     </section>}
     <button style={{width:'100%',marginTop:8,color:'#ffb3ac',border:'1px solid #653f42',background:'#2b1c25',padding:9,borderRadius:7,cursor:'pointer'}} onClick={()=>engine.removeClip(clip.id,clip.trackId)}>Delete clip</button>
   </div>
