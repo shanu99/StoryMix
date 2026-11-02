@@ -17,10 +17,10 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
  await expect(page.getByText('MEDIA',{exact:true})).toBeVisible();
 
  await expect(page.getByRole('button',{name:'Import',exact:true})).toBeVisible();
- await page.locator('.sm-top-menu').first().locator('summary').click();
+ if((await page.locator('.sm-top-menu').first().getAttribute('open'))===null)await page.locator('.sm-top-menu').first().locator('summary').click();
  await expect(page.getByRole('button',{name:'Open project'})).toBeVisible();
  await expect(page.getByRole('button',{name:'Save project'})).toBeVisible();
- await page.locator('.sm-top-menu').last().locator('summary').click();
+ if((await page.locator('.sm-top-menu').last().getAttribute('open'))===null)await page.locator('.sm-top-menu').last().locator('summary').click();
  await expect(page.getByRole('button',{name:'Import SRT'})).toBeVisible();
  await expect(page.getByRole('button',{name:'Export SRT'})).toBeVisible();
  await expect(page.getByRole('button',{name:/Export/}).first()).toBeVisible();
