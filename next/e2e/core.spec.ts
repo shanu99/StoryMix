@@ -32,7 +32,14 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
  await expect(page.getByText(/Imported 1 files/)).toBeVisible({timeout:20000});
  await expect(page.getByText(/placed 1 clips/)).toBeVisible({timeout:30000});
  await page.locator('.sm-top-menu').first().locator('summary').click();
- const [download]=await Promise.all([page.waitForEvent('download',{timeout:12000}),page.getByRole('button',{name:'Save project'}).click()]);
+ const saveAttempt=page.waitForEvent('download',{timeout:10000}).catch(()=>null);
+ await page.getByRole('button',{name:'Save project'}).click();
+ await page.waitForTimeout(700);
+ console.log('SAVE DIAGNOSTIC:',(await page.locator('body').innerText()).slice(0,650));
+ console.log('BROWSER ERRORS:',errors);
+ const download=await saveAttempt;
+ expect(download,'Project Save must trigger real download').not.toBeNull();
+ if(!download)throw new Error('Project Save download did not occur');
  expect(download.suggestedFilename()).toBe('StoryMix-project.json');
  const srt=`1
 00:00:00,100 --> 00:00:01,200
