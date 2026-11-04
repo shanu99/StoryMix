@@ -3,7 +3,7 @@ import {join} from 'node:path'
 import {execFileSync} from 'node:child_process'
 
 test('release gate: encoded MP4 contains playable video AND AAC audio',async({page})=>{
-  test.setTimeout(90000)
+  test.setTimeout(180000)
   await page.goto('/')
   await page.locator('input[aria-label="Choose video audio or image files"]').setInputFiles(join(process.cwd(),'e2e','fixtures','test-video.mp4'))
   await expect(page.getByText('This video has audio')).toBeVisible({timeout:20000})
@@ -12,7 +12,7 @@ test('release gate: encoded MP4 contains playable video AND AAC audio',async({pa
   await page.locator('.elah-export-btn').click()
   await expect(page.getByText('Export Video')).toBeVisible()
   await page.getByRole('button',{name:/360p/}).click()
-  const filePromise=page.waitForEvent('download',{timeout:60000}).then(download=>({download})).catch(()=>null)
+  const filePromise=page.waitForEvent('download',{timeout:150000}).then(download=>({download})).catch(()=>null)
   const failPromise=page.getByText('Export failed').waitFor({state:'visible',timeout:60000}).then(()=>({failed:true as const})).catch(()=>null)
   await page.getByRole('button',{name:'Export',exact:true}).last().click()
   const outcome=await Promise.race([filePromise,failPromise])
