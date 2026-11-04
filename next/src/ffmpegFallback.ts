@@ -16,11 +16,11 @@ export async function exportMp4WithWasm(
   opts: ExportOptions,
 ): Promise<Blob> {
   if (opts.signal?.aborted) throw new DOMException('Export cancelled', 'AbortError');
-  const { lazyExportVideo } = await import('@elah/editor');
+  const { lazyExportVideo } = await import('@elah/core');
   const { FFmpeg } = await import('@ffmpeg/ffmpeg');
 
   // Opus and VP8 are supported by Chromium's WebCodecs where AAC is absent.
-  const webm = await lazyExportVideo(project, {
+  const webm = await lazyExportVideo(project as unknown as Parameters<typeof lazyExportVideo>[0], {
     ...opts,
     container: 'webm',
     videoCodec: 'vp8',
