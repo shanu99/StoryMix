@@ -394,19 +394,32 @@ export default function ProductionEditor() {
     usePlaybackStore.getState().pause()
     const project = e.getProject()
     const { lazyExportVideo } = await import('@elah/editor')
-    const blob = await lazyExportVideo(project, {
+    const exportOptions = {
       videoBitrate: opts.videoBitrate,
       outputHeight: opts.outputHeight,
       videoCodec: opts.videoCodec,
       audioCodec: opts.audioCodec,
       signal: opts.signal,
-      onProgress: ({ frame, totalFrames }) => opts.onProgress(frame, totalFrames),
-    })
+      onProgress: ({ frame, totalFrames }: {frame:number;totalFrames:number}) => opts.onProgress(frame, totalFrames),
+    }
+    let blob:Blob
+    try {
+      blob = await lazyExportVideo(project, exportOptions)
+    } catch(error) {
+      // Some Chromium builds lack the WebCodecs AAC encoder even when H.264
+      // video encoding works. Preserve the original fast export where possible.
+      const reason = String(error)
+      if (!/mp4a\.40\.2|AudioEncoder|audio.*encoder.*config|encoder configuration/i.test(reason) || opts.signal.aborted) throw error
+      const { exportMp4WithWasm } = await import('./ffmpegFallback')
+      blob = await exportMp4WithWasm(project, exportOptions)
+    }
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = 'StoryMix-export.mp4'
+    document.body.appendChild(a)
     a.click()
+    a.remove()
     setTimeout(() => URL.revokeObjectURL(url), 60_000)
   }, [])
 
