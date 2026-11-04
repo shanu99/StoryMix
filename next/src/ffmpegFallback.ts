@@ -32,10 +32,25 @@ export async function exportMp4WithWasm(
   const onAbort = () => ffmpeg.terminate();
   opts.signal?.addEventListener('abort', onAbort, { once: true });
   try {
-    await ffmpeg.load({
-      coreURL: '/ffmpeg/ffmpeg-core.js',
-      wasmURL: '/ffmpeg/ffmpeg-core.wasm',
-    });
+    // Vite treats dynamic imports from /public as source modules and rejects
+    // them; blob URLs ensure the FFmpeg worker imports its local static assets
+    // without Vite rewriting the module path to "?import".
+    const resources = await Promise.all([
+      fetch('/ffmpeg/ffmpeg-core.js'),
+      fetch('/ffmpeg/ffmpeg-core.wasm'),
+    ]);
+    for (const response of resources) {
+      if (!response.ok) throw new Error('Missing local FFmpeg asset: '+response.url);
+    }
+    const [jsBlob, wasmBlob] = await Promise.all(resources.map(r=>r.blob()));
+    const coreURL=URL.createObjectURL(new Blob([jsBlob],{type:'text/javascript'}));
+    const wasmURL=URL.createObjectURL(new Blob([wasmBlob],{type:'application/wasm'}));
+    try {
+      await ffmpeg.load({coreURL,wasmURL});
+    } finally {
+      URL.revokeObjectURL(coreURL);
+      URL.revokeObjectURL(wasmURL);
+    }
     if (opts.signal?.aborted) throw new DOMException('Export cancelled', 'AbortError');
     await ffmpeg.writeFile('storymix-input.webm', new Uint8Array(await webm.arrayBuffer()));
     // x264 output is broadly playable. AAC in FFmpeg wasm does not depend on
