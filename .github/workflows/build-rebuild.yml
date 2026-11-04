@@ -1,7 +1,7 @@
 name: Build StoryMix Elah editor
 on:
   push:
-    branches: [rebuild/editor-foundation, phase1/core-editor-verification, design/version-c-hybrid-ui, design/capcut-consistent-toolbar, design/glass-blue-v1, feature/phase1-core-completion]
+    branches: [rebuild/editor-foundation, phase1/core-editor-verification, design/version-c-hybrid-ui, design/capcut-consistent-toolbar, design/glass-blue-v1, feature/phase1-core-completion, feature/phase1-aac-ffmpeg-fallback]
   pull_request:
     paths: ['next/**','.github/workflows/build-rebuild.yml']
 permissions:
@@ -24,7 +24,10 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - name: Install fixture encoder
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+        run: |
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          fi
       - name: Generate H264 test media
         run: |
           mkdir -p e2e/fixtures
