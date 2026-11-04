@@ -9,7 +9,8 @@ test('release gate: encoded MP4 contains playable video AND AAC audio',async({pa
   await expect(page.getByText('This video has audio')).toBeVisible({timeout:20000})
   await page.getByText('Video + Audio',{exact:true}).click()
   await expect(page.getByText(/Imported 1 files/)).toBeVisible({timeout:20000})
-  await page.locator('input[accept=".srt,text/plain"]').setInputFiles({name:'sinhala.srt',mimeType:'text/plain',buffer:Buffer.from(`1\n00:00:00,200 --> 00:00:02,300\nසිංහල StoryMix\n`)}
+  const srt = `1\n00:00:00,200 --> 00:00:02,300\nසිංහල StoryMix\n`
+  await page.locator('input[accept=".srt,text/plain"]').setInputFiles({name:'sinhala.srt',mimeType:'text/plain',buffer:Buffer.from(srt)})
   await expect(page.getByText(/Imported 1 captions/)).toBeVisible()
   await page.locator('.elah-export-btn').click()
   await expect(page.getByText('Export Video')).toBeVisible()
