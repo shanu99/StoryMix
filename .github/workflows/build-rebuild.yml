@@ -24,7 +24,10 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - name: Install fixture encoder
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+        run: |
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          fi
       - name: Generate H264 test media
         run: |
           mkdir -p e2e/fixtures
