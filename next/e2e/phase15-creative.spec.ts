@@ -43,7 +43,7 @@ test('manual Sinhala captions and style presets survive a project save',async({p
  const field=page.getByRole('textbox',{name:'New caption text'})
  await field.fill('ආයුබෝවන් StoryMix')
  await page.getByRole('button',{name:'Add caption at playhead'}).click()
- await page.getByRole('button',{name:/All captions/}).click()
+ await page.getByRole('button',{name:/Apply style to all captions/}).click()
  const p=await save(page)
  const c=all(p).find(c=>c.type==='text'&&c.content==='ආයුබෝවන් StoryMix')
  expect(c).toBeTruthy()
