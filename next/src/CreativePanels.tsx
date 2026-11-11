@@ -128,8 +128,8 @@ function TransitionsPanel({clip}:{clip:Clip}){
  return <div style={outer}><span style={heading}>TRANSITIONS BETWEEN CLIPS</span>
   <p style={note}>Select the first visual clip in an adjacent pair. Transitions render in preview and MP4; their duration can be changed later.</p>
   <div style={note}>Next clip: {next?.name??'None'} {next&&gap>2?'(move clips together to enable)':''}</div>
-  <div role="list" aria-label="Draggable transitions" style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:7}}>
-    {kinds.map(k=><button key={k} type="button" role="listitem" draggable aria-label={'Drag '+pretty(k)+' transition'}
+  <div aria-label="Draggable transitions" style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:7}}>
+    {kinds.map(k=><button key={k} type="button" draggable aria-label={'Drag '+pretty(k)+' transition'}
       onDragStart={e=>{e.dataTransfer.setData(MIME,k);e.dataTransfer.effectAllowed='copy'}}
       onClick={()=>setKind(k)} title={'Drag '+pretty(k)+' onto adjacent video clips'}
       style={{...button,display:'grid',gap:5,justifyItems:'stretch',borderColor:kind===k?'#16B9F5':'#355065'}}>
