@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState,type PointerEvent as ReactPointerEvent} from 'react'
 import {RotateCcw,RotateCw,Move,Maximize2,Crop,Undo2} from 'lucide-react'
-import {useTimelineEngine,useTracksStore,useSelectionStore,type Clip} from '@elah/editor'
+import {useTimelineEngine,useTracksStore,useSelectionStore,useMediaLibraryStore,type Clip} from '@elah/editor'
+import {transformFromContainRect,normalizeCrop} from '@elah/core-next'
 
 /**
  * Small overlay next to the live canvas. The Elah canvas already supports
@@ -13,6 +14,8 @@ export function VisualCanvasTools(){
  const engine=useTimelineEngine()
  const selectedIds=useSelectionStore(s=>s.selectedClipIds)
  const clips=useTracksStore(s=>s.clips)
+ const stage=useTracksStore(s=>s.stage)
+ const assets=useMediaLibraryStore(s=>s.assets)
  const selectedId=[...selectedIds].length===1?[...selectedIds][0]:null
  const clip:Clip|undefined=selectedId?Object.values(clips).flat().find(c=>c.id===selectedId):undefined
  const isVisual=clip&&(clip.type==='video'||clip.type==='image')
@@ -20,7 +23,9 @@ export function VisualCanvasTools(){
  const [help,setHelp]=useState(false)
  useEffect(()=>()=>{if(gesture.current)engine.cancelInteraction()},[engine])
  if(!isVisual||!clip)return null
- const transform={x:.5,y:.5,scale:1,rotation:0,anchor:{x:.5,y:.5},...clip.transform}
+ const asset=clip.assetId?assets[clip.assetId]:undefined
+ const crop=normalizeCrop(clip.crop)
+ const transform=clip.transform??transformFromContainRect((asset?.width??stage.width)*crop.width,(asset?.height??stage.height)*crop.height,stage.width,stage.height)
  const deg=Math.round(transform.rotation*180/Math.PI)
  const start=(e:ReactPointerEvent<HTMLButtonElement>)=>{
   if(e.button!==0)return
