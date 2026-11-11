@@ -34,6 +34,8 @@ jobs:
           ffmpeg -hide_banner -loglevel error -y -f lavfi -i testsrc2=size=640x360:rate=30 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 3 -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest -movflags +faststart e2e/fixtures/test-video.mp4
           ffmpeg -hide_banner -loglevel error -y -f lavfi -i color=c=black:s=640x360:r=30 -t 3 -c:v libx264 -pix_fmt yuv420p e2e/fixtures/test-black.mp4
           ffmpeg -hide_banner -loglevel error -y -f lavfi -i testsrc2=size=640x360:rate=30 -f lavfi -i sine=frequency=880:sample_rate=48000 -t 12 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac -shortest e2e/fixtures/test-long.mp4
+          ffmpeg -hide_banner -loglevel error -y -f lavfi -i sine=frequency=660:sample_rate=48000 -t 3 -c:a pcm_s16le e2e/fixtures/test-audio.wav
+          ffmpeg -hide_banner -loglevel error -y -f lavfi -i color=c=red:s=640x360 -frames:v 1 e2e/fixtures/test-image.png
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: success()
