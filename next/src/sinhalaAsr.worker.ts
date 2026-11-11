@@ -83,13 +83,12 @@ async function recognize(req:Start){
    transcriber=await loadAsr('automatic-speech-recognition',choice,{
     device:'wasm',dtype:'q8',progress_callback:progress,
    })
-  }else if(req.model==='sinhala'){
-   emit({type:'progress',stage:'Sinhala model unavailable. Trying multilingual Whisper…'})
-   chosen=MODELS.multilingual
-   transcriber=await loadAsr('automatic-speech-recognition',chosen,{
-    device:'wasm',dtype:'q8',progress_callback:progress,
-   })
-  }else throw gpuError
+  }else {
+   // Never silently switch from Sinhala-trained recognition to a generic
+   // multilingual model: it can return romanized Singlish or another script.
+   // A user may explicitly choose the alternate model in Advanced settings.
+   throw gpuError
+  }
  }
  const framesPerWindow=WINDOW_SECONDS*SAMPLE_RATE
  const total=Math.ceil(waveform.length/framesPerWindow)
