@@ -57,8 +57,16 @@ test('decoded audio waveform and mixer change actual clip volume and fades',asyn
  await page.locator('[data-clip-type="audio"]').first().click({position:{x:30,y:12}})
  await page.getByRole('button',{name:'Audio',exact:true}).click()
  await expect(page.getByRole('img',{name:'Decoded audio waveform'})).toBeVisible({timeout:30000})
- await page.getByRole('slider',{name:'Audio volume'}).fill('45')
- await page.getByRole('slider',{name:'Fade in duration'}).fill('0.5')
+ const setSlider=async(label:string,value:string)=>{
+  await page.getByRole('slider',{name:label}).evaluate((el,value)=>{
+   const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')?.set
+   setter?.call(el,value)
+   el.dispatchEvent(new Event('input',{bubbles:true}))
+   el.dispatchEvent(new Event('change',{bubbles:true}))
+  },value)
+ }
+ await setSlider('Audio volume','45')
+ await setSlider('Fade in duration','0.5')
  const p=await save(page)
  const c=all(p).find(c=>c.type==='audio')!
  expect(c.volume).toBeCloseTo(.45)
