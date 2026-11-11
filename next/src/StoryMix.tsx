@@ -1,5 +1,6 @@
 import {FolderOpen,Save,Upload,Subtitles,Download,ChevronDown,Undo2,Redo2,Clapperboard,CloudOff} from 'lucide-react'
 import {parseSrt,writeSrt} from './subtitles'
+import {captionPresentation,videoStageFromMedia,wrapCaption} from './captionLayout'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { ClipProperties } from './ClipProperties'
 import { CreativePanel } from './CreativePanels'
@@ -74,7 +75,16 @@ const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }
   const [missingMedia,setMissingMedia]=useState<string[]>([])
   const [message,setMessage]=useState('')
   const download=(blob:Blob,name:string)=>{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}
-  const importMedia=async(files:File[])=>{setMessage('Importing '+files.length+' media files...');try{const result=await importFiles(files);let added=0;for(const asset of result.imported){const inserted=await insertMediaAsset(engine,asset.id,{desiredStartFrame:engine.getTotalFrames()});if(inserted.ok)added++}setMessage('Imported '+result.imported.length+' files, placed '+added+' clips'+(result.skipped.length?'; skipped '+result.skipped.length:''))}catch(e){setMessage('Import error: '+String(e))}}
+  const importMedia=async(files:File[])=>{setMessage('Importing '+files.length+' media files...');try{const result=await importFiles(files);let added=0;for(const asset of result.imported){
+  // The first visual source defines the canvas; never override an existing
+  // edit or a manually selected stage ratio on later imports.
+  const hasVisual=Object.values(engine.getProject().clips).flat().some(c=>c.type==='video'||c.type==='image');
+  if(!hasVisual&&(asset.type==='video'||asset.type==='image')){
+   const size=videoStageFromMedia(asset.width??0,asset.height??0)
+   if(size)engine.setStage(size.width,size.height)
+  }
+  const inserted=await insertMediaAsset(engine,asset.id,{desiredStartFrame:engine.getTotalFrames()});if(inserted.ok)added++
+ }setMessage('Imported '+result.imported.length+' files, placed '+added+' clips'+(result.skipped.length?'; skipped '+result.skipped.length:''))}catch(e){setMessage('Import error: '+String(e))}}
   const saveProject=()=>{try{const project=engine.getProject();download(new Blob([JSON.stringify(project,null,2)],{type:'application/json'}),'StoryMix-project.json');setMessage('Project saved. Keep original media files for relinking.')}catch(e){setMessage('Save failed: '+String(e));console.error('StoryMix project save',e)}}
   useEffect(()=>{const onSave=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();saveProject()}};window.addEventListener('keydown',onSave);return()=>window.removeEventListener('keydown',onSave)},[engine])
   const checkMissing=(project:ReturnType<typeof engine.getProject>)=>[...new Set(Object.values(project.clips).flat().filter(clip=>['video','audio','image'].includes(clip.type)&&typeof clip.src==='string'&&clip.src.startsWith('blob:')).map(clip=>clip.name))]
@@ -102,7 +112,17 @@ const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }
       setMessage('Relinked '+replaced+' clips'+(remaining.length?'; '+remaining.length+' still need media':''));
     }catch(e){setMessage('Relink failed: '+String(e))}
   }
-  const addSrt=async(file:File)=>{try{const segments=parseSrt(await file.text());if(!segments.length)throw new Error('No valid captions found in SRT');const track=engine.addTrack('elements',{name:'Captions'});engine.batch(()=>{for(const seg of segments)engine.addClip({type:'text',trackId:track.id,name:'Caption',startFrame:Math.round(seg.start*30),durationFrames:Math.max(1,Math.round((seg.end-seg.start)*30)),text:{content:seg.text,fontSize:48,color:'#ffffff',fontFamily:'Noto Sans Sinhala'}})},'Import captions');setMessage('Imported '+segments.length+' captions')}catch(e){setMessage('SRT error: '+String(e))}}
+  const addSrt=async(file:File)=>{try{const segments=parseSrt(await file.text());if(!segments.length)throw new Error('No valid captions found in SRT');const track=engine.addTrack('elements',{name:'Captions'});engine.batch(()=>{
+  const layout=captionPresentation(engine.getProject().stage)
+  for(const seg of segments){
+   const added=engine.addClip({type:'text',trackId:track.id,name:'Caption',startFrame:Math.round(seg.start*30),
+     durationFrames:Math.max(1,Math.round((seg.end-seg.start)*30)),
+     text:{content:wrapCaption(seg.text,layout.maxCharactersPerLine),fontSize:layout.fontSize,color:'#ffffff',fontFamily:'Noto Sans Sinhala',textAlign:'center'}})
+   engine.updateClip(added.id,track.id,{transform:{x:layout.x,y:layout.y,scale:1,rotation:0,anchor:{x:.5,y:.5}},
+     textOutline:{color:'#071321',width:Math.max(2,Math.round(layout.fontSize*.07))},
+     textShadow:{color:'#000000',blur:Math.max(4,Math.round(layout.fontSize*.13)),offsetX:1,offsetY:3}})
+  }
+ },'Import captions');setMessage('Imported '+segments.length+' captions')}catch(e){setMessage('SRT error: '+String(e))}}
   const exportSrt=()=>{try{const p=engine.getProject();const entries=p.tracks.filter(t=>t.kind==='elements'&&/caption/i.test(t.name)).flatMap(t=>(p.clips[t.id]||[]).filter(c=>c.type==='text'&&c.content).map(c=>({start:c.startFrame/30,end:(c.startFrame+c.durationFrames)/30,text:c.content||''})));download(new Blob([writeSrt(entries)],{type:'text/plain;charset=utf-8'}),'StoryMix-captions.srt');setMessage('SRT exported: '+entries.length+' captions')}catch(e){setMessage('SRT export failed: '+String(e));console.error('StoryMix SRT export',e)}}
   return (
     <header className="sm-topbar">
