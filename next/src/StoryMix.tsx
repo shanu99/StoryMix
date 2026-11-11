@@ -69,7 +69,7 @@ const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }
   const importMedia=async(files:File[])=>{setMessage('Importing '+files.length+' media files...');try{const result=await importFiles(files);let added=0;for(const asset of result.imported){const inserted=await insertMediaAsset(engine,asset.id,{desiredStartFrame:engine.getTotalFrames()});if(inserted.ok)added++}setMessage('Imported '+result.imported.length+' files, placed '+added+' clips'+(result.skipped.length?'; skipped '+result.skipped.length:''))}catch(e){setMessage('Import error: '+String(e))}}
   const saveProject=()=>{try{const project=engine.getProject();download(new Blob([JSON.stringify(project,null,2)],{type:'application/json'}),'StoryMix-project.json');setMessage('Project saved. Keep original media files for relinking.')}catch(e){setMessage('Save failed: '+String(e));console.error('StoryMix project save',e)}}
   useEffect(()=>{const onSave=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();saveProject()}};window.addEventListener('keydown',onSave);return()=>window.removeEventListener('keydown',onSave)},[engine])
-  const checkMissing=(project:ReturnType<typeof engine.getProject>)=>Object.values(project.clips).flat().filter(clip=>['video','audio','image'].includes(clip.type)&&typeof clip.src==='string'&&clip.src.startsWith('blob:')).map(clip=>clip.name)
+  const checkMissing=(project:ReturnType<typeof engine.getProject>)=>[...new Set(Object.values(project.clips).flat().filter(clip=>['video','audio','image'].includes(clip.type)&&typeof clip.src==='string'&&clip.src.startsWith('blob:')).map(clip=>clip.name))]
   const openProject=async(file:File)=>{try{const {readProjectDocument}=await import('@elah/editor');const project=readProjectDocument(JSON.parse(await file.text()));engine.loadProject(project,{history:'reset',transport:'rewind'});const missing=checkMissing(project);setMissingMedia(missing);setMessage(missing.length?'Project loaded. Relink '+missing.length+' local media files.':'Project loaded.')}catch(e){setMessage('Open failed: '+String(e))}}
   const relinkFiles=async(files:File[])=>{
     if(!files.length)return;
@@ -80,7 +80,7 @@ const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }
       const urls=new Map<string,string>();
       const clips=Object.fromEntries(Object.entries(project.clips).map(([track,bucket])=>[track,bucket.map(clip=>{
         if(!['video','audio','image'].includes(clip.type)||typeof clip.src!=='string')return clip;
-        const match=byName.get(clip.name.toLowerCase())||byName.get(decodeURIComponent(clip.src.split('/').pop()||'').toLowerCase());
+        const match=byName.get(clip.name.toLowerCase());
         if(!match)return clip;
         let url=urls.get(match.name);if(!url){url=URL.createObjectURL(match);urls.set(match.name,url)}
         replaced++;
@@ -89,12 +89,12 @@ const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }
       if(!replaced){setMessage('No matching filenames. Select the original media files.');return}
       await importFiles(files);
       engine.loadProject({...project,clips},{history:'reset',transport:'rewind'});
-      const remaining=missingMedia.filter(name=>!byName.has(name.toLowerCase()));
+      const remaining=checkMissing({...project,clips} as typeof project);
       setMissingMedia(remaining);
       setMessage('Relinked '+replaced+' clips'+(remaining.length?'; '+remaining.length+' still need media':''));
     }catch(e){setMessage('Relink failed: '+String(e))}
   }
-  const addSrt=async(file:File)=>{try{const segments=parseSrt(await file.text());const track=engine.addTrack('elements',{name:'Captions'});engine.batch(()=>{for(const seg of segments)engine.addClip({type:'text',trackId:track.id,name:'Caption',startFrame:Math.round(seg.start*30),durationFrames:Math.max(1,Math.round((seg.end-seg.start)*30)),text:{content:seg.text,fontSize:48,color:'#ffffff',fontFamily:'sans-serif'}})},'Import captions');setMessage('Imported '+segments.length+' captions')}catch(e){setMessage('SRT error: '+String(e))}}
+  const addSrt=async(file:File)=>{try{const segments=parseSrt(await file.text());if(!segments.length)throw new Error('No valid captions found in SRT');const track=engine.addTrack('elements',{name:'Captions'});engine.batch(()=>{for(const seg of segments)engine.addClip({type:'text',trackId:track.id,name:'Caption',startFrame:Math.round(seg.start*30),durationFrames:Math.max(1,Math.round((seg.end-seg.start)*30)),text:{content:seg.text,fontSize:48,color:'#ffffff',fontFamily:'Noto Sans Sinhala'}})},'Import captions');setMessage('Imported '+segments.length+' captions')}catch(e){setMessage('SRT error: '+String(e))}}
   const exportSrt=()=>{try{const p=engine.getProject();const entries=p.tracks.filter(t=>t.kind==='elements'&&/caption/i.test(t.name)).flatMap(t=>(p.clips[t.id]||[]).filter(c=>c.type==='text'&&c.content).map(c=>({start:c.startFrame/30,end:(c.startFrame+c.durationFrames)/30,text:c.content||''})));download(new Blob([writeSrt(entries)],{type:'text/plain;charset=utf-8'}),'StoryMix-captions.srt');setMessage('SRT exported: '+entries.length+' captions')}catch(e){setMessage('SRT export failed: '+String(e));console.error('StoryMix SRT export',e)}}
   return (
     <header className="sm-topbar">
