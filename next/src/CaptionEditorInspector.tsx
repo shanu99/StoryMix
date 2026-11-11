@@ -1,8 +1,8 @@
 import {useState,type CSSProperties} from 'react'
 import {Check,Download,ChevronDown,Plus,Paintbrush,AlertCircle} from 'lucide-react'
-import {useTimelineEngine,useTracksStore,useSelectionStore,usePlaybackStore,type Clip} from '@elah/editor'
+import {useTimelineEngine,useTracksStore,useSelectionStore,usePlaybackStore,useMediaLibraryStore,type Clip} from '@elah/editor'
 import {TextClipProperties} from './TextClipProperties'
-import {captionPresentation,wrapCaption,captionScriptIssue} from './captionLayout'
+import {captionPresentation,wrapCaption,splitCaptionForDisplay,captionScriptIssue} from './captionLayout'
 import {sourceSecondsToTimelineFrame} from './sinhalaAsr'
 import {useCaptionWorkspace} from './CaptionWorkspaceState'
 import {writeSrt} from './subtitles'
@@ -27,8 +27,8 @@ function ClipAppearance({style,setStyle}:{style:Style;setStyle:(style:Style)=>vo
   </select>
  </label>
 }
-function stylePatch(style:Style,stage:{width:number;height:number}):Partial<Clip>{
- const layout=captionPresentation(stage)
+function stylePatch(style:Style,stage:{width:number;height:number},sourceSize?:{width:number;height:number}|null):Partial<Clip>{
+ const layout=captionPresentation(stage,sourceSize)
  const fontSize=Math.round(layout.fontSize*(style==='clean'?.88:style==='cinematic'?.96:1))
  return {
   fontFamily:'Noto Sans Sinhala',fontSize,color:style==='cinematic'?'#fff4df':'#ffffff',textAlign:'center',
@@ -43,6 +43,7 @@ export function CaptionEditorInspector(){
  const tracks=useTracksStore(s=>s.tracks)
  const clips=useTracksStore(s=>s.clips)
  const stage=useTracksStore(s=>s.stage)
+ const assets=useMediaLibraryStore(s=>s.assets)
  const selectedIds=useSelectionStore(s=>s.selectedClipIds)
  const currentFrame=usePlaybackStore(s=>s.currentFrame)
  const {draft,setDraft,reviewReady,setReviewReady,sourceClipId,feedback,setFeedback}=useCaptionWorkspace()
@@ -58,6 +59,12 @@ export function CaptionEditorInspector(){
  const issues=draft.map(r=>captionScriptIssue(r.text))
  const valid=draft.length>0&&issues.every(issue=>!issue)&&draft.every(r=>r.end>r.start)
  const source=engine.findClip(sourceClipId)?.clip
+ const primaryVideo=Object.values(clips).flat().find(c=>c.type==='video')
+ const layoutVideo=source?.type==='video'?source:primaryVideo
+ const sourceAsset=layoutVideo?.assetId?assets[layoutVideo.assetId]:undefined
+ const contentSize=sourceAsset?.width&&sourceAsset?.height
+  ? {width:sourceAsset.width,height:sourceAsset.height}:null
+ const captionLayout=captionPresentation(stage,contentSize)
  const toTimeline=(start:number,end:number)=>{
   if(!source)throw Error('Source clip was removed. Please regenerate the captions.')
   const timelineStart=sourceSecondsToTimelineFrame(start,source.startFrame,source.speed??1)
@@ -67,7 +74,7 @@ export function CaptionEditorInspector(){
  const insert=()=>{
   if(!source||!valid){setError('Please correct all Sinhala captions and timing values first.');return}
   try{
-   const layout=captionPresentation(stage)
+   const layout=captionLayout
    const sorted=[...draft].sort((a,b)=>a.start-b.start)
    let inserted=0
    engine.batch(()=>{
@@ -77,11 +84,19 @@ export function CaptionEditorInspector(){
      const t=toTimeline(row.start,row.end)
      const start=Math.max(last,t.start),end=Math.min(source.startFrame+source.durationFrames,t.end)
      if(end<=start)continue
-     const patch=stylePatch(style,stage)
-     const created=engine.addClip({type:'text',trackId:target.id,name:'AI Caption',startFrame:start,durationFrames:end-start,
-      text:{content:wrapCaption(row.text.normalize('NFC').trim(),layout.maxCharactersPerLine),fontFamily:'Noto Sans Sinhala',fontSize:patch.fontSize,color:patch.color,textAlign:'center'}})
-     engine.updateClip(created.id,target.id,patch)
-     last=end;inserted++
+     const cards=splitCaptionForDisplay(row.text.normalize('NFC').trim(),layout.maxCharactersPerLine)
+     const span=end-start
+     for(let index=0;index<cards.length;index++){
+      const cardStart=start+Math.round(span*index/cards.length)
+      const cardEnd=start+Math.round(span*(index+1)/cards.length)
+      if(cardEnd<=cardStart)continue
+      const patch=stylePatch(style,stage,contentSize)
+      const created=engine.addClip({type:'text',trackId:target.id,name:'AI Caption',startFrame:cardStart,durationFrames:cardEnd-cardStart,
+       text:{content:cards[index],fontFamily:'Noto Sans Sinhala',fontSize:patch.fontSize,color:patch.color,textAlign:'center'}})
+      engine.updateClip(created.id,target.id,patch)
+      inserted++
+     }
+     last=end
     }
    },'Insert generated Sinhala captions')
    setFeedback(inserted+' editable Sinhala captions added. Select a caption on the timeline to edit it here.')
@@ -99,10 +114,11 @@ export function CaptionEditorInspector(){
  const addManual=()=>{
   if(!text.trim()){setError('Enter caption text first.');return}
   const start=Math.max(0,currentFrame),frames=Math.max(1,Math.round(seconds*30))
+  if(Array.from(text.trim()).length>captionLayout.maxCharactersPerLine*2){setError('Manual caption is too long for this video. Split it into shorter lines first.');return}
   let target=tracks.find(t=>t.kind==='elements'&&/caption/i.test(t.name)&&!t.locked&&(clips[t.id]??[]).every(c=>c.startFrame+c.durationFrames<=start||c.startFrame>=start+frames))
   if(!target)target=engine.addTrack('elements',{name:'Captions'})
   try{
-   const layout=captionPresentation(stage),patch=stylePatch(style,stage)
+   const layout=captionLayout,patch=stylePatch(style,stage,contentSize)
    const created=engine.addClip({type:'text',trackId:target.id,name:'Caption',startFrame:start,durationFrames:frames,
     text:{content:wrapCaption(text.trim(),layout.maxCharactersPerLine),fontFamily:'Noto Sans Sinhala',fontSize:patch.fontSize,color:patch.color,textAlign:'center'}})
    engine.updateClip(created.id,target.id,patch)
@@ -111,18 +127,18 @@ export function CaptionEditorInspector(){
  }
  const applyAll=()=>{
   const targets=captionClips.filter(c=>!engine.isTrackLocked(c.trackId))
-  engine.batch(()=>targets.forEach(c=>engine.updateClip(c.id,c.trackId,stylePatch(style,stage))),'Style all captions')
+  engine.batch(()=>targets.forEach(c=>engine.updateClip(c.id,c.trackId,stylePatch(style,stage,contentSize))),'Style all captions')
   setFeedback('Updated '+targets.length+' caption styles.')
  }
  if(!reviewReady&&selectedText)return <TextClipProperties/>
  return <section aria-label="Caption editor inspector" style={{display:'grid',gap:13,padding:14,color:'#e7f5ff',fontSize:12,overflowY:'auto'}}>
   <div style={{display:'grid',gap:4}}>
    <strong style={{fontSize:14}}>{reviewReady?'Review Sinhala captions':'Caption editor'}</strong>
-   <span style={{fontSize:11,color:secondary}}>{stage.width} × {stage.height} · Automatic video-safe layout</span>
+   <span style={{fontSize:11,color:secondary}}>{stage.width} × {stage.height} · Captions fit the visible video, not black bars</span>
   </div>
   {reviewReady&&<>
    <div style={{fontSize:11,color:secondary}}>Correct recognized words here. The timeline and text styling stay separate from caption generation.</div>
-   {issues.some(Boolean)&&<div role="alert" style={{fontSize:11,color:'#ffb7a2'}}>Singlish or unsupported characters found. Correct highlighted lines into Sinhala Unicode before adding captions.</div>}
+   {issues.some(Boolean)&&<div role="alert" style={{fontSize:11,color:'#ffb7a2'}}>Some generated lines look incorrect, repeated, or too long. Please correct the highlighted lines before adding captions.</div>}
    <div style={{display:'grid',gap:9,maxHeight:'min(45vh,420px)',overflowY:'auto'}}>
    {draft.map((r,i)=><div key={i} style={{padding:9,background:'#13283b',border:'1px solid '+(issues[i]?'#b66b55':'#355269'),borderRadius:9,display:'grid',gap:6}}>
     <textarea aria-label={'Caption '+(i+1)+' text'} rows={2} style={{...control,resize:'vertical'}} value={r.text} onChange={e=>edit(i,{text:e.target.value})}/>
