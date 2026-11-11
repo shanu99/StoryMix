@@ -65,7 +65,7 @@ test('preview transport Play/Pause and timeline seek work on real media',async({
  await expect(page.getByText('This video has audio')).toBeVisible({timeout:20000})
  await page.getByText('Video only',{exact:true}).click()
  await expect(page.getByText(/placed 1 clips/)).toBeVisible()
- const play=page.getByRole('button',{name:'Play / Pause (Space)'})
+ const play=page.locator('button[title="Play / Pause (Space)"]')
  await expect(play).toBeVisible()
  await play.click()
  await expect(play).toHaveText('⏸')
