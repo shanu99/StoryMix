@@ -88,9 +88,8 @@ test('local autosave presents explicit recovery after reload, without automatic 
 
 test('draggable visual transition creates an actual timeline transition',async({page})=>{
  await addVideo(page)
- await page.locator('input[aria-label="Choose video audio or image files"]').setInputFiles(fixture('test-video.mp4'))
- await expect(page.getByText('This video has audio')).toBeVisible({timeout:25000})
- await page.getByText('Video only',{exact:true}).click()
+ await page.locator('input[aria-label="Choose video audio or image files"]').setInputFiles(fixture('test-black.mp4'))
+ await expect(page.getByText(/Imported 1 files/)).toBeVisible({timeout:25000})
  await expect(page.locator('[data-clip-type="video"]')).toHaveCount(2)
  await page.locator('[data-clip-type="video"]').first().click({position:{x:30,y:12}})
  await page.getByRole('button',{name:'Transitions',exact:true}).click()
