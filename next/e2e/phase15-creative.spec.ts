@@ -39,6 +39,7 @@ test('effects, color looks and keyframes are persisted as renderable clip metada
 test('manual Sinhala captions and style presets survive a project save',async({page})=>{
  await addVideo(page)
  await page.getByRole('button',{name:'Captions',exact:true}).click()
+ await page.getByText('Manual captions & styling').click()
  const field=page.getByRole('textbox',{name:'New caption text'})
  await field.fill('ආයුබෝවන් StoryMix')
  await page.getByRole('button',{name:'Add caption at playhead'}).click()
