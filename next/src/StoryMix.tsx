@@ -158,9 +158,23 @@ const PreviewTransport = memo(function PreviewTransport() {
   const togglePlayPause = usePlaybackStore((s) => s.togglePlayPause)
   const totalFrames = useTracksStore((s) => s.totalFrames)
   const timecodeRef = useRef<HTMLSpanElement>(null)
+  const seekRef = useRef<HTMLInputElement>(null)
+  const seek=(raw:string)=>{
+    const match=raw.trim().match(/^(\\d{1,2}):(\\d{1,2}):(\\d{1,2}):(\\d{1,2})$/)
+    if(!match||Number(match[2])>=60||Number(match[3])>=60||Number(match[4])>=FPS){
+      if(seekRef.current)seekRef.current.value=framesToTimecode(usePlaybackStore.getState().currentFrame,FPS)
+      return
+    }
+    const [,hours,minutes,seconds,frames]=match
+    const target=Math.min(totalFrames,((Number(hours)*3600+Number(minutes)*60+Number(seconds))*FPS)+Number(frames))
+    usePlaybackStore.getState().pause()
+    usePlaybackStore.getState().setCurrentFrame(target)
+    if(seekRef.current)seekRef.current.value=framesToTimecode(target,FPS)
+  }
 
   useEffect(() => {
     return usePlaybackStore.subscribe((state) => {
+      if(seekRef.current&&document.activeElement!==seekRef.current)seekRef.current.value=framesToTimecode(state.currentFrame,FPS)
       if (timecodeRef.current) {
         const dur = Math.max(totalFrames, 1)
         timecodeRef.current.textContent =
@@ -170,6 +184,7 @@ const PreviewTransport = memo(function PreviewTransport() {
   }, [totalFrames])
 
   useEffect(() => {
+    if(seekRef.current)seekRef.current.value=framesToTimecode(usePlaybackStore.getState().currentFrame,FPS)
     if (timecodeRef.current) {
       const frame = usePlaybackStore.getState().currentFrame
       const dur = Math.max(totalFrames, 1)
@@ -205,7 +220,7 @@ const PreviewTransport = memo(function PreviewTransport() {
         flexShrink: 0,
       }}
     >
-      <span
+      <div style={{display:'flex',alignItems:'center',gap:9,minWidth:0}}><span
         ref={timecodeRef}
         style={{
           fontSize: 11,
@@ -217,6 +232,10 @@ const PreviewTransport = memo(function PreviewTransport() {
       >
         00:00:00:00 / 00:00:00:00
       </span>
+      <input ref={seekRef} type="text" aria-label="Seek timecode" title="Precise timecode seek — HH:MM:SS:FF; press Enter" defaultValue="00:00:00:00"
+        onKeyDown={e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()} }} onBlur={e=>seek(e.currentTarget.value)}
+        style={{width:112,padding:'5px 7px',borderRadius:6,border:'1px solid #355164',color:'#bbecff',background:'#0d1b29',fontFamily:theme.fontMono,fontSize:11,flexShrink:0}}/>
+      </div>
 
       <button
         type="button"
