@@ -79,12 +79,12 @@ function FilterPicker({clip}:{clip:Clip}){
 }
 function TransitionsPanel({clip}:{clip:Clip}){
  const engine=useTimelineEngine()
- const project=useTracksStore(s=>({tracks:s.tracks,clips:s.clips}))
+ const projectClips=useTracksStore(s=>s.clips)
  const [duration,setDuration]=useState(.6)
  const [kind,setKind]=useState<(typeof kinds)[number]>('fade')
  const [direction,setDirection]=useState<'left'|'right'|'up'|'down'>('left')
  const [notice,setNotice]=useState('')
- const lane=[...(project.clips[clip.trackId]??[])].sort((a,b)=>a.startFrame-b.startFrame)
+ const lane=[...(projectClips[clip.trackId]??[])].sort((a,b)=>a.startFrame-b.startFrame)
  const index=lane.findIndex(c=>c.id===clip.id)
  const next=lane[index+1]
  const gap=next?next.startFrame-(clip.startFrame+clip.durationFrames):Infinity
