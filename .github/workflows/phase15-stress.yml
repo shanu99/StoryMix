@@ -35,7 +35,7 @@ jobs:
           ffmpeg -hide_banner -loglevel error -y -stream_loop 100 -i e2e/fixtures/test-hd.mp4 -t 300 -c copy -movflags +faststart e2e/fixtures/test-five-minute.mp4
           ffprobe -hide_banner -v error -show_entries format=duration -of default=nw=1 e2e/fixtures/test-five-minute.mp4
       - name: Run 1080p and 5-minute browser stress gates
-        run: npx playwright test e2e/stress.spec.ts
+        run: STORYMIX_STRESS=1 npx playwright test e2e/stress.spec.ts
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
