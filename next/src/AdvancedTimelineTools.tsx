@@ -1,7 +1,50 @@
-import {useCallback,useEffect,useState} from 'react'
+import {useCallback,useEffect,useState,type ReactNode,type CSSProperties} from 'react'
+import {createPortal} from 'react-dom'
 import {usePlaybackStore,useSelectionStore,useTracksStore,useTimelineEngine,type Clip} from '@elah/editor'
-import {Scissors,Layers3,Trash2,Copy,Magnet,SkipBack,SkipForward,ChevronLeft,ChevronRight} from 'lucide-react'
+import {Scissors,Layers3,Trash2,Copy,Magnet,SkipBack,SkipForward,ChevronLeft,ChevronRight,AlignStartHorizontal,AlignEndHorizontal,Delete} from 'lucide-react'
 import {theme} from './theme'
+
+type IconButtonProps={label:string;title:string;run:()=>void;enabled?:boolean;active?:boolean;icon?:ReactNode}
+const iconButtonStyle:CSSProperties={
+  display:'inline-flex',alignItems:'center',justifyContent:'center',width:34,height:32,
+  padding:0,border:'1px solid #344759',borderRadius:7,background:'#182737',
+  color:'#e5f3fc',cursor:'pointer',flexShrink:0
+}
+/** An accessible icon-only control with an instant descriptive hover/focus tooltip. */
+function TimelineIconButton({label,title,run,enabled=true,active=false,icon}:IconButtonProps){
+  const [tooltip,setTooltip]=useState<{left:number;top:number;below:boolean}|null>(null)
+  const show=(element:HTMLElement)=>{
+    const rect=element.getBoundingClientRect()
+    const left=Math.max(10,Math.min(window.innerWidth-244,rect.left+rect.width/2-120))
+    const below=rect.top<116
+    setTooltip({left,top:below?rect.bottom+9:rect.top-9,below})
+  }
+  return <>
+    <span style={{display:'inline-flex',flexShrink:0}} onMouseEnter={e=>show(e.currentTarget)}
+      onMouseLeave={()=>setTooltip(null)} onFocusCapture={e=>show(e.currentTarget)}
+      onBlurCapture={()=>setTooltip(null)}>
+      <button type="button" className="sm-advanced-edit-action" aria-label={label}
+        onClick={run} disabled={!enabled}
+        style={{...iconButtonStyle,...(!enabled?{opacity:.38,cursor:'not-allowed'}:{}),
+          ...(active?{borderColor:'#16B9F5',background:'rgba(22,185,245,.16)',color:'#76d9ff'}:{})}}>
+        {icon}
+      </button>
+    </span>
+    {tooltip&&createPortal(
+      <div role="tooltip" style={{
+        position:'fixed',left:tooltip.left,top:tooltip.top,zIndex:20000,width:240,
+        transform:tooltip.below?'none':'translateY(-100%)',pointerEvents:'none',
+        background:'#101b29',border:'1px solid #426179',borderRadius:9,
+        padding:'9px 11px',boxShadow:'0 12px 28px rgba(0,0,0,.5)',
+        color:'#e7f5ff',fontSize:12,lineHeight:1.5
+      }}>
+        <div style={{fontWeight:700,marginBottom:3,color:'#f2fbff'}}>{label}</div>
+        <div style={{color:'#a8c5d9',fontSize:11}}>{title}</div>
+        {!enabled&&<div style={{marginTop:5,color:'#80d6ff',fontSize:10}}>Select a clip to enable</div>}
+      </div>,document.body
+    )}
+  </>
+}
 
 /**
  * Non-destructive, frame-accurate shortcuts. All edits use TimelineEngine
@@ -128,25 +171,22 @@ export function AdvancedTimelineTools(){
     return()=>window.removeEventListener('keydown',onKey)
   },[duplicate,find,nextCut,remove,split,step,toggleSnap,trim])
 
-  const style:React.CSSProperties={border:'1px solid #344759',borderRadius:7,background:'#182737',color:'#e5f3fc',fontSize:11,fontWeight:600,padding:'7px 10px',cursor:'pointer',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:5}
-  const Action=({label,title,run,enabled=true,active=false,icon}:{label:string;title:string;run:()=>void;enabled?:boolean;active?:boolean;icon?:React.ReactNode})=>
-    <button type="button" className="sm-advanced-edit-action" title={title} aria-label={label} onClick={run} disabled={!enabled}
-      style={{...style,...(!enabled?{opacity:.38,cursor:'not-allowed'}:{}),...(active?{borderColor:'#16B9F5',background:'rgba(22,185,245,.16)',color:'#76d9ff'}:{})}}>{icon}{label}</button>
+  const Action=TimelineIconButton
 
-  return <div aria-label="Advanced timeline edit tools" style={{display:'flex',alignItems:'center',gap:6,minWidth:0,maxWidth:'100%',overflowX:'auto',scrollbarWidth:'thin'}}>
-    <Action label="Split" title="Split selected clip(s) at playhead (S / Ctrl+B)" run={()=>split(false)} enabled={ids.length>0} icon={<Scissors size={13}/>}/>
-    <Action label="Split All" title="Blade across unlocked tracks at playhead (Shift+S)" run={()=>split(true)} icon={<Layers3 size={13}/>}/>
-    <Action label="Trim Start" title="Non-destructive trim start to playhead (Q)" run={()=>trim('in')} enabled={!!selected}/>
-    <Action label="Trim End" title="Non-destructive trim end to playhead (W)" run={()=>trim('out')} enabled={!!selected}/>
-    <Action label="Delete" title="Delete selected clips without moving other clips (Delete)" run={()=>remove(false)} enabled={ids.length>0} icon={<Trash2 size={13}/>}/>
-    <Action label="Ripple Delete" title="Delete and close gap on the same track (Shift+Delete)" run={()=>remove(true)} enabled={!!selected}/>
-    <Action label="Duplicate" title="Insert copy right after clip (Ctrl+D)" run={duplicate} enabled={!!selected} icon={<Copy size={13}/>}/>
+  return <div aria-label="Advanced timeline edit tools" style={{display:'flex',alignItems:'center',gap:6,minWidth:0,maxWidth:'100%',overflowX:'auto',scrollbarWidth:'thin',padding:'4px 1px'}}>
+    <Action label="Split" title="Split selected clip(s) at playhead (S / Ctrl+B)" run={()=>split(false)} enabled={ids.length>0} icon={<Scissors size={17}/>}/>
+    <Action label="Split All" title="Blade across unlocked tracks at playhead (Shift+S)" run={()=>split(true)} icon={<Layers3 size={17}/>}/>
+    <Action label="Trim Start" title="Non-destructive trim start to playhead (Q)" run={()=>trim('in')} enabled={!!selected} icon={<AlignStartHorizontal size={17}/>}/>
+    <Action label="Trim End" title="Non-destructive trim end to playhead (W)" run={()=>trim('out')} enabled={!!selected} icon={<AlignEndHorizontal size={17}/>}/>
+    <Action label="Delete" title="Delete selected clips without moving other clips (Delete)" run={()=>remove(false)} enabled={ids.length>0} icon={<Trash2 size={17}/>}/>
+    <Action label="Ripple Delete" title="Delete and close gap on the same track (Shift+Delete)" run={()=>remove(true)} enabled={!!selected} icon={<Delete size={17}/>}/>
+    <Action label="Duplicate" title="Insert copy right after clip (Ctrl+D)" run={duplicate} enabled={!!selected} icon={<Copy size={17}/>}/>
     <span aria-hidden="true" style={{height:22,borderLeft:'1px solid #344759',margin:'0 2px'}}/>
-    <Action label="Prev Cut" title="Previous edit point ([)" run={()=>nextCut(-1)} icon={<SkipBack size={13}/>}/>
-    <Action label="Next Cut" title="Next edit point (])" run={()=>nextCut(1)} icon={<SkipForward size={13}/>}/>
-    <Action label="−1 Frame" title="Step backward one frame (Left Arrow)" run={()=>step(-1)} icon={<ChevronLeft size={13}/>}/>
-    <Action label="+1 Frame" title="Step forward one frame (Right Arrow)" run={()=>step(1)} icon={<ChevronRight size={13}/>}/>
-    <Action label={snapEnabled?'Snap On':'Snap Off'} title="Toggle magnetic snapping (N)" run={toggleSnap} active={snapEnabled} icon={<Magnet size={13}/>}/>
+    <Action label="Prev Cut" title="Previous edit point ([)" run={()=>nextCut(-1)} icon={<SkipBack size={17}/>}/>
+    <Action label="Next Cut" title="Next edit point (])" run={()=>nextCut(1)} icon={<SkipForward size={17}/>}/>
+    <Action label="−1 Frame" title="Step backward one frame (Left Arrow)" run={()=>step(-1)} icon={<ChevronLeft size={17}/>}/>
+    <Action label="+1 Frame" title="Step forward one frame (Right Arrow)" run={()=>step(1)} icon={<ChevronRight size={17}/>}/>
+    <Action label={snapEnabled?'Snap On':'Snap Off'} title="Toggle magnetic snapping (N)" run={toggleSnap} active={snapEnabled} icon={<Magnet size={17}/>}/>
     {notice&&<span role="status" style={{fontSize:10,color:theme.textMuted,minWidth:135,whiteSpace:'nowrap'}}>{notice}</span>}
   </div>
 }
