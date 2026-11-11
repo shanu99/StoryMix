@@ -22,7 +22,7 @@ jobs:
           node-version: '22'
       - run: npm install --no-audit --no-fund
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium msedge
       - name: Install fixture encoder
         run: |
           if ! command -v ffmpeg >/dev/null 2>&1; then
