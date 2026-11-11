@@ -403,8 +403,16 @@ export default function ProductionEditor() {
       onProgress: ({ frame, totalFrames }: {frame:number;totalFrames:number}) => opts.onProgress(frame, totalFrames),
     }
     let blob:Blob
+    // Dev-only verification switch: exercise the real FFmpeg path in CI even
+    // when the test browser supports native AAC. Omitted from production builds.
+    const forceWasm = import.meta.env.DEV && new URLSearchParams(location.search).has('forceWasmExport')
     try {
-      blob = await lazyExportVideo(project, exportOptions)
+      if (forceWasm) {
+        const { exportMp4WithWasm } = await import('./ffmpegFallback')
+        blob = await exportMp4WithWasm(project, exportOptions)
+      } else {
+        blob = await lazyExportVideo(project, exportOptions)
+      }
     } catch(error) {
       // Some Chromium builds lack the WebCodecs AAC encoder even when H.264
       // video encoding works. Preserve the original fast export where possible.
