@@ -1,4 +1,4 @@
-import {useMemo,useState,type CSSProperties} from 'react'
+import {useEffect,useState,type CSSProperties} from 'react'
 import {useSelectionStore,useTracksStore,useTimelineEngine,usePlaybackStore,useMediaLibraryStore,type Clip} from '@elah/editor'
 import {createEffect,getEffectDefinition,effectsFor,applyEffectPreset,setKeyframe,removeKeyframe,detachClipAudio,reattachClipAudio,canReattachAudio} from '@elah/core-next'
 
@@ -89,6 +89,35 @@ function TransitionsPanel({clip}:{clip:Clip}){
  const next=lane[index+1]
  const gap=next?next.startFrame-(clip.startFrame+clip.durationFrames):Infinity
  const existing=engine.getProject().transitions.find(t=>t.fromClipId===clip.id&&t.toClipId===next?.id)
+ const MIME='application/x-storymix-transition'
+ useEffect(()=>{
+  const over=(e:DragEvent)=>{if(e.dataTransfer?.types.includes(MIME))e.preventDefault()}
+  const drop=(e:DragEvent)=>{
+   const chosen=e.dataTransfer?.getData(MIME)
+   if(!chosen||!kinds.includes(chosen as typeof kind))return
+   e.preventDefault();e.stopPropagation()
+   if(!(e.target instanceof Element))return
+   const element=e.target.closest<HTMLElement>('[data-clip-id]')
+   if(!element?.closest('[data-elah-timeline-root]')){setNotice('Drop a transition onto a clip in the video timeline.');return}
+   const found=engine.findClip(element.dataset.clipId??'')
+   if(!found||engine.isTrackLocked(found.trackId)){setNotice('Select an unlocked video clip.');return}
+   const lane=[...engine.getClipsOnTrack(found.trackId)].sort((a,b)=>a.startFrame-b.startFrame)
+   const index=lane.findIndex(c=>c.id===found.clip.id)
+   const adjacent=(a:Clip|undefined,b:Clip|undefined)=>a&&b&&['video','image'].includes(a.type)&&['video','image'].includes(b.type)
+      &&b.startFrame>=a.startFrame+a.durationFrames&&b.startFrame-a.startFrame-a.durationFrames<=2
+   const from=adjacent(lane[index],lane[index+1])?lane[index]:adjacent(lane[index-1],lane[index])?lane[index-1]:undefined
+   const to=from?lane[lane.indexOf(from)+1]:undefined
+   if(!from||!to){setNotice('Place two visual clips next to each other on the same track first.');return}
+   const durationFrames=Math.max(2,Math.min(120,Math.round(duration*30)))
+   const existing=engine.getProject().transitions.find(t=>t.fromClipId===from.id&&t.toClipId===to.id)
+   if(existing)engine.updateTransition(existing.id,{kind:chosen as typeof kind,durationFrames,direction})
+   else engine.addTransition({fromClipId:from.id,toClipId:to.id,trackId:found.trackId,kind:chosen as typeof kind,durationFrames,direction})
+   setNotice(pretty(chosen)+' transition applied. Select the first clip to edit its settings.')
+  }
+  document.addEventListener('dragover',over,true)
+  document.addEventListener('drop',drop,true)
+  return()=>{document.removeEventListener('dragover',over,true);document.removeEventListener('drop',drop,true)}
+ },[engine,duration,direction])
  const add=()=>{
   if(!next||gap>2||gap<0){setNotice('Place two visual clips together on the same track first.');return}
   if(engine.isTrackLocked(clip.trackId)){setNotice('Unlock the track to edit transitions.');return}
@@ -99,6 +128,15 @@ function TransitionsPanel({clip}:{clip:Clip}){
  return <div style={outer}><span style={heading}>TRANSITIONS BETWEEN CLIPS</span>
   <p style={note}>Select the first visual clip in an adjacent pair. Transitions render in preview and MP4; their duration can be changed later.</p>
   <div style={note}>Next clip: {next?.name??'None'} {next&&gap>2?'(move clips together to enable)':''}</div>
+  <div role="list" aria-label="Draggable transitions" style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:7}}>
+    {kinds.map(k=><button key={k} type="button" role="listitem" draggable aria-label={'Drag '+pretty(k)+' transition'}
+      onDragStart={e=>{e.dataTransfer.setData(MIME,k);e.dataTransfer.effectAllowed='copy'}}
+      onClick={()=>setKind(k)} title={'Drag '+pretty(k)+' onto adjacent video clips'}
+      style={{...button,display:'grid',gap:5,justifyItems:'stretch',borderColor:kind===k?'#16B9F5':'#355065'}}>
+        <span aria-hidden="true" style={{height:25,borderRadius:5,background:'linear-gradient(115deg,#244058,#16B9F5 50%,#071522)',opacity:.75}}/>
+        <span style={{fontSize:11}}>{pretty(k)}</span>
+      </button>)}
+   </div>
   <select aria-label="Transition type" style={control} value={kind} onChange={e=>setKind(e.target.value as typeof kind)}>{kinds.map(k=><option key={k} value={k}>{pretty(k)}</option>)}</select>
   <MiniField label="Duration (seconds)" min={.07} max={4} step={.1} value={duration} onChange={setDuration}/>
   <label style={{...note,display:'grid',gap:5}}>Direction<select aria-label="Transition direction" style={control} value={direction} onChange={e=>setDirection(e.target.value as typeof direction)}>
