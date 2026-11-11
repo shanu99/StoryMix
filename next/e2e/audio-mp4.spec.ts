@@ -2,9 +2,12 @@ import {test,expect} from '@playwright/test'
 import {join} from 'node:path'
 import {execFileSync} from 'node:child_process'
 
-test('release gate: encoded MP4 contains playable video AND AAC audio',async({page})=>{
+for (const scenario of [{name:'native-capable browser',url:'/',force:false},{name:'forced FFmpeg WebAssembly fallback',url:'/?forceWasmExport=1',force:true}]) {
+test(`release gate: ${scenario.name} produces playable H.264/AAC MP4`,async({page})=>{
   test.setTimeout(180000)
-  await page.goto('/')
+  const ffmpegAssets:string[]=[]
+  page.on('response',response=>{if(response.url().includes('/ffmpeg/ffmpeg-core.'))ffmpegAssets.push(response.url())})
+  await page.goto(scenario.url)
   await page.locator('input[aria-label="Choose video audio or image files"]').setInputFiles(join(process.cwd(),'e2e','fixtures','test-video.mp4'))
   await expect(page.getByText('This video has audio')).toBeVisible({timeout:20000})
   await page.getByText('Video + Audio',{exact:true}).click()
@@ -38,4 +41,9 @@ test('release gate: encoded MP4 contains playable video AND AAC audio',async({pa
   const rms=Math.sqrt(squared/Math.max(1,pcm.length/2))
   console.log('AUDIO/VIDEO MP4:',video.codec_name,audio.codec_name,'duration:',probe.format.duration,'audio RMS:',rms.toFixed(4))
   expect(rms,'actual audible sound, not an empty/silent track').toBeGreaterThan(.003)
+  if(scenario.force){
+    expect(ffmpegAssets.some(url=>url.endsWith('ffmpeg-core.js')),'WASM JS core loaded').toBeTruthy()
+    expect(ffmpegAssets.some(url=>url.endsWith('ffmpeg-core.wasm')),'WASM binary loaded').toBeTruthy()
+  }
 })
+}
