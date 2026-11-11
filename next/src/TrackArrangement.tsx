@@ -33,11 +33,11 @@ export function TrackArrangement(){
    {tracks.map((track,index)=><div key={track.id} draggable onDragStart={e=>{setDrag(track.id);e.dataTransfer.setData('text/plain',track.id);e.dataTransfer.effectAllowed='move'}}
     onDragOver={e=>{e.preventDefault();setOver(track.id)}} onDrop={e=>onDrop(e,track.id)} onDragEnd={()=>{setDrag(null);setOver(null)}}
     data-track-arrange-id={track.id} style={{display:'flex',gap:6,alignItems:'center',padding:5,marginBottom:5,borderRadius:7,
-      border:over===track.id?'1px solid #16B9F5':'1px solid #31475b',background:'#182a3a',opacity:drag===track.id?.75:1}}>
+      border:over===track.id?'1px solid #16B9F5':'1px solid #31475b',background:'#182a3a',opacity:drag===track.id ? .75 : 1}}>
      <GripVertical size={15} style={{flexShrink:0,cursor:'grab',color:'#8db8d0'}}/>
      <span style={{...label,flex:1,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{track.name}</span>
-     <button type="button" aria-label={'Move '+track.name+' up'} title="Move track higher" onClick={()=>move(track.id,index-1)} disabled={index===0} style={{...btn,opacity:index===0?.35:1}}><ArrowUp size={13}/></button>
-     <button type="button" aria-label={'Move '+track.name+' down'} title="Move track lower" onClick={()=>move(track.id,index+1)} disabled={index===tracks.length-1} style={{...btn,opacity:index===tracks.length-1?.35:1}}><ArrowDown size={13}/></button>
+     <button type="button" aria-label={'Move '+track.name+' up'} title="Move track higher" onClick={()=>move(track.id,index-1)} disabled={index===0} style={{...btn,opacity:index===0 ? .35 : 1}}><ArrowUp size={13}/></button>
+     <button type="button" aria-label={'Move '+track.name+' down'} title="Move track lower" onClick={()=>move(track.id,index+1)} disabled={index===tracks.length-1} style={{...btn,opacity:index===tracks.length-1 ? .35 : 1}}><ArrowDown size={13}/></button>
      <button type="button" aria-label={(track.locked?'Unlock ':'Lock ')+track.name} title={track.locked?'Unlock track':'Lock track'} onClick={()=>engine.updateTrack(track.id,{locked:!track.locked})} style={btn}>{track.locked?<Lock size={13}/>:<LockOpen size={13}/>}</button>
     </div>)}
    <div style={{display:'flex',gap:6,justifyContent:'flex-end',marginTop:8}}>
