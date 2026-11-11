@@ -19,15 +19,24 @@ export function videoStageFromMedia(width:number,height:number):CanvasSize|null{
  if(ratio>=1)return {width:1920,height:Math.max(360,Math.round(1920/ratio))}
  return {width:1080,height:Math.max(540,Math.round(1080/ratio))}
 }
-export function captionPresentation(canvas:CanvasSize):CaptionPresentation{
- const width=Math.max(240,canvas.width||1920)
- const height=Math.max(240,canvas.height||1080)
- // Keep text within the visual safe area; vertical phone video has a narrower
- // line width, while landscape can display wider lines without reducing size.
- const portrait=height>width*1.15
- const fontSize=Math.round(Math.max(20,Math.min(width*(portrait?.052:.043),height*.065,74)))
- const maxCharactersPerLine=Math.max(12,Math.floor(width*.80/(fontSize*.70)))
- return {fontSize,x:.5,y:portrait?.79:.84,maxCharactersPerLine}
+/**
+ * When a portrait video is inside a landscape project, fit the caption to
+ * the ACTUAL rendered video rectangle, not the empty letterbox surrounding it.
+ * Preserve the user's project aspect ratio rather than silently changing it.
+ */
+export function captionPresentation(canvas:CanvasSize,source?:CanvasSize|null):CaptionPresentation{
+ const stageW=Math.max(240,canvas.width||1920)
+ const stageH=Math.max(240,canvas.height||1080)
+ const hasSource=source&&source.width>0&&source.height>0
+ const ratio=hasSource?source.width/source.height:stageW/stageH
+ const displayW=Math.min(stageW,stageH*ratio)
+ const displayH=Math.min(stageH,stageW/ratio)
+ const portrait=ratio<.85
+ const fontSize=Math.round(Math.max(18,Math.min(displayW*(portrait?.050:.041),displayH*.065,72)))
+ const chars=Math.max(10,Math.floor(displayW*.78/Math.max(1,fontSize*.75)))
+ const yOffset=(stageH-displayH)/2
+ const y=(yOffset+displayH*(portrait?.78:.82))/stageH
+ return {fontSize,x:.5,y,maxCharactersPerLine:Math.min(44,chars)}
 }
 export function wrapCaption(text:string,maxCharacters:number):string{
  const normalized=text.normalize('NFC').replace(/\s+/gu,' ').trim()
