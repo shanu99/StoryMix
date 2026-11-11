@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useState,type DragEvent} from 'react'
+import {useCallback,useEffect,useState,type DragEvent as ReactDragEvent} from 'react'
 import {ArrowDown,ArrowUp,GripVertical,Layers,Lock,LockOpen,Magnet,Plus,ZoomIn,ZoomOut} from 'lucide-react'
 import {usePlaybackStore,useTracksStore,useTimelineEngine} from '@elah/editor'
 
@@ -16,7 +16,7 @@ export function TrackArrangement(){
   order.splice(from,1);order.splice(to,0,id)
   engine.reorderTracks(order)
  },[engine,tracks])
- const onDrop=(e:DragEvent,id:string)=>{
+ const onDrop=(e:ReactDragEvent,id:string)=>{
   e.preventDefault()
   if(drag)move(drag,tracks.findIndex(t=>t.id===id))
   setDrag(null);setOver(null)
@@ -65,7 +65,7 @@ export function TimelineZoomButtons(){
  */
 export function TimelineDragAutoPan(){
  useEffect(()=>{
-  const onDrag=(e:globalThis.DragEvent)=>{
+  const onDrag=(e:DragEvent)=>{
    const node=e.target
    if(!(node instanceof Element))return
    const root=node.closest('[data-elah-timeline-root]')
