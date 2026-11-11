@@ -78,8 +78,10 @@ const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }
   const importMedia=async(files:File[])=>{setMessage('Importing '+files.length+' media files...');try{const result=await importFiles(files);let added=0;for(const asset of result.imported){
   // The first visual source defines the canvas; never override an existing
   // edit or a manually selected stage ratio on later imports.
-  const hasVisual=Object.values(engine.getProject().clips).flat().some(c=>c.type==='video'||c.type==='image');
-  if(!hasVisual&&(asset.kind==='video'||asset.kind==='image')){
+  const currentProject=engine.getProject()
+  const hasVisual=Object.values(currentProject.clips).flat().some(c=>c.type==='video'||c.type==='image');
+  const unconfiguredStage=currentProject.stage.width===1920&&currentProject.stage.height===1080
+  if(!hasVisual&&unconfiguredStage&&(asset.kind==='video'||asset.kind==='image')){
    const size=videoStageFromMedia(asset.width??0,asset.height??0)
    if(size)engine.setStage(size.width,size.height)
   }
