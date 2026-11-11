@@ -7,6 +7,8 @@ import { CreativePanel } from './CreativePanels'
 import { VoiceRecorder } from './VoiceRecorder'
 import { AdvancedAudioPanel } from './AdvancedAudioPanel'
 import { CaptionsWorkbench } from './CaptionsWorkbench'
+import { CaptionEditorInspector } from './CaptionEditorInspector'
+import { CaptionWorkspaceProvider } from './CaptionWorkspaceState'
 import { LocalProjectRecovery } from './LocalProjectRecovery'
 import { AdvancedTimelineTools } from './AdvancedTimelineTools'
 import { TrackArrangement,TimelineZoomButtons,TimelineDragAutoPan } from './TrackArrangement'
@@ -472,6 +474,7 @@ export default function ProductionEditor() {
       initialTracks={INITIAL_TRACKS}
       stage={{ width: 1920, height: 1080 }}
     >
+      <CaptionWorkspaceProvider>
       <div
         className="elah-root sm-hybrid-editor"
         style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
@@ -518,7 +521,7 @@ export default function ProductionEditor() {
               <PreviewTransport />
             </div>
 
-            <aside className="sm-inspector" aria-label="Properties inspector"><div className="sm-inspector-caption">INSPECTOR <span>PROPERTIES</span></div><ClipProperties /></aside>
+            <aside className="sm-inspector" aria-label="Properties inspector"><div className="sm-inspector-caption">INSPECTOR <span>{activeTool==='Captions'?'CAPTION EDITOR':'PROPERTIES'}</span></div>{activeTool==='Captions'?<CaptionEditorInspector/>:<ClipProperties/>}</aside>
           </div>
 
           <TimelineControls timelineRef={timelineRef} />
@@ -550,6 +553,7 @@ export default function ProductionEditor() {
           />
         </div>
       </div>
+      </CaptionWorkspaceProvider>
     </EditorProvider>
   )
 }
