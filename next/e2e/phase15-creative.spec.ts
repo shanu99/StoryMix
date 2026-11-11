@@ -121,7 +121,7 @@ test('local microphone voiceover is recorded and inserted on an audio track',asy
  await expect(page.getByRole('button',{name:'Stop recording'})).toBeVisible({timeout:25000})
  await page.waitForTimeout(1050)
  await page.getByRole('button',{name:'Stop recording'}).click()
- await expect(page.getByRole('status')).toContainText('Voiceover inserted at playhead',{timeout:35000})
+ await expect(page.getByRole('region',{name:'Record tools'}).getByRole('status')).toContainText('Voiceover inserted at playhead',{timeout:35000})
  await expect(page.locator('[data-clip-type="audio"]')).toHaveCount(1)
  const p=await save(page)
  const clip=all(p).find(c=>c.type==='audio')
