@@ -58,6 +58,28 @@ export function wrapCaption(text:string,maxCharacters:number):string{
 /** Reject model hallucinations, especially one repeated Sinhala glyph or syllable.
  * Valid Sinhala script alone does NOT make a transcript intelligible.
  */
+/** Keep subtitle cards to a maximum of two short lines, splitting long
+ * recognized phrases into consecutive caption clips instead of overflowing
+ * the frame. Never discard recognized words.
+ */
+export function splitCaptionForDisplay(text:string,maxChars:number):string[]{
+ const normalized=text.normalize('NFC').replace(/\s+/gu,' ').trim()
+ if(!normalized)return []
+ const limit=Math.max(10,Math.min(44,Math.floor(maxChars)))
+ const words=normalized.split(' ')
+ const lines:string[]=[]
+ let line=''
+ for(const word of words){
+  if(!line){line=word;continue}
+  if(Array.from(line+' '+word).length<=limit){line+=' '+word;continue}
+  lines.push(line);line=word
+ }
+ if(line)lines.push(line)
+ const cards:string[]=[]
+ for(let i=0;i<lines.length;i+=2)cards.push(lines.slice(i,i+2).join('\n'))
+ return cards
+}
+
 export function captionScriptIssue(text:string):string|null{
  const value=text.normalize('NFC').trim()
  if(!value)return 'Caption text is empty.'
