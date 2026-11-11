@@ -74,3 +74,22 @@ test('timeline zoom buttons change zoom without modifying project clips',async({
   const after=await saveProject(page)
   expect(after.clips).toEqual(before.clips)
 })
+
+test('dragging media near timeline edge auto-pans its scroll viewport',async({page})=>{
+ await importVideo(page)
+ const zoom=page.getByLabel('Timeline zoom controls')
+ for(let i=0;i<8;i++)await zoom.getByRole('button',{name:'Zoom in'}).click()
+ const positions=await page.evaluate(()=>{
+  const root=document.querySelector('[data-elah-timeline-root]')!
+  const viewport=Array.from(root.querySelectorAll<HTMLElement>('div')).find(el=>getComputedStyle(el).overflowX==='auto'&&el.clientWidth>0)!
+  if(!viewport||viewport.scrollWidth<=viewport.clientWidth)throw Error('Timeline not horizontally scrollable')
+  viewport.scrollLeft=0
+  const rect=viewport.getBoundingClientRect()
+  const lane=viewport.querySelector('[data-elah-lane]')??viewport
+  const before=viewport.scrollLeft
+  for(let i=0;i<5;i++)lane.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,
+    clientX:rect.right-12,clientY:Math.min(rect.bottom-12,rect.top+40),dataTransfer:new DataTransfer()}))
+  return {before,after:viewport.scrollLeft}
+ })
+ expect(positions.after).toBeGreaterThan(positions.before)
+})
