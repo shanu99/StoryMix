@@ -463,6 +463,7 @@ export default function ProductionEditor() {
                   demuxerFactory={demuxerFactoryRef.current}
                   style={{ width: '100%', height: '100%' }}
                 />
+                <VisualCanvasTools />
               </div>
               <PreviewTransport />
             </div>
