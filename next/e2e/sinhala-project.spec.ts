@@ -31,6 +31,7 @@ test('Sinhala caption project persists across reload, and relink restores origin
  await expect(page.getByText(/Project loaded. Relink 1 local media files/)).toBeVisible()
  await page.locator('input[aria-label="Relink original media files"]').setInputFiles(join(process.cwd(),'e2e','fixtures','test-video.mp4'))
  if(await page.getByText('This video has audio').isVisible({timeout:2000}).catch(()=>false))await page.getByText('Video only',{exact:true}).click()
- await expect(page.getByText(/Relinked [1-9]\\d* clips/)).toBeVisible({timeout:20000})
+ console.log('RELINK DEBUG:',(await page.locator('body').innerText()).slice(0,900))
+ await expect(page.getByText(/Relinked [1-9]\\d* clips/)).toBeVisible({timeout:8000})
  expect(errors).toEqual([])
 })
