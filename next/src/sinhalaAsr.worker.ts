@@ -77,7 +77,7 @@ async function recognize(req:Start){
   ? [choice,'onnx-community/whisper-small']
   : [choice]
  let transcriber:LocalPipeline|undefined
- let chosen=choice
+ let chosen:string=choice
  const failures:string[]=[]
  for(const modelId of candidates){
   if(transcriber)break
