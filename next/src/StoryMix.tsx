@@ -448,7 +448,9 @@ export default function ProductionEditor() {
               {activeTool==='Media' ? <AssetPanel style={{flex:1,minHeight:0}} /> :
                activeTool==='Text' ? <ElementsPanel style={{flex:1,minHeight:0}} /> :
                activeTool==='Audio' ? <AudioPanelInfo /> :
-               activeTool==='Captions' ? <CaptionsPanelInfo /> : undefined}
+               activeTool==='Captions' ? <CaptionsPanelInfo /> :
+               activeTool==='Effects'||activeTool==='Filters'||activeTool==='Transitions'||activeTool==='Keyframes' ? <CreativePanel type={activeTool} /> :
+               activeTool==='Record' ? <VoiceRecorder /> : undefined}
             </WorkspacePanel>
 
             <div
