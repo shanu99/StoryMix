@@ -12,7 +12,7 @@ import {
 } from '@elah/editor'
 import { sectionLabel, theme } from './theme'
 
-const FONTS = ['sans-serif', 'serif', 'monospace', 'Georgia', 'Impact']
+const FONTS = ['Noto Sans Sinhala', 'Iskoola Pota', 'sans-serif', 'serif', 'monospace', 'Georgia', 'Impact']
 
 const inputStyle: CSSProperties = {
   flex: 1,
