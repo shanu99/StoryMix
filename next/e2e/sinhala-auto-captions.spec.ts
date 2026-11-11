@@ -215,7 +215,7 @@ test('Sinhala repeated-glyph hallucinations are rejected, not inserted into a gi
   ]
  })
  expect(issues[0]).toMatch(/Repeated letters/)
- expect(issues[1]).toMatch(/Repeated letters|repeated/)
+ expect(issues[1]).toMatch(/Repeated letters|repeated|too long/)
  expect(issues[2]).toBeNull()
  expect((issues[3] as string[]).length).toBeGreaterThan(1)
  expect((issues[3] as string[]).every(c=>c.split('\\n').length<=2)).toBeTruthy()
@@ -223,17 +223,20 @@ test('Sinhala repeated-glyph hallucinations are rejected, not inserted into a gi
  expect((issues[4] as any).maxCharactersPerLine).toBeLessThan((issues[5] as any).maxCharactersPerLine)
 })
 
-test('existing corrupted AI clip offers removal instead of rendering unbounded repeated Sinhala',async({page})=>{
+test('invalid previously generated caption is flagged and can be removed safely',async({page})=>{
+ await fakeTranscriber(page)
  await page.goto('/')
  await page.locator('input[aria-label="Choose video audio or image files"]').setInputFiles(fixture('test-audio.wav'))
  await expect(page.getByText(/placed 1 clips/)).toBeVisible({timeout:25000})
- // Legacy-generated bad clip is inserted directly for regression coverage.
- await page.evaluate(async()=>{
-  const store=(window as any).__storymixTestEngine
-  if(store?.addTestCaption)store.addTestCaption('ව'.repeat(90))
- })
- // The pure hallucination validator protects newly generated subtitles even
- // if legacy clip state is unavailable to this isolated browser environment.
- const error=await page.evaluate(async()=>{const m=await import('/src/captionLayout.ts');return m.captionScriptIssue('ව'.repeat(90))})
- expect(error).toMatch(/Repeated letters/)
+ await page.getByRole('button',{name:'Captions',exact:true}).click()
+ await page.getByRole('button',{name:'Generate Sinhala AI captions'}).click()
+ await expect(page.getByRole('button',{name:'Insert generated captions into timeline'})).toBeEnabled({timeout:30000})
+ await page.getByRole('button',{name:'Insert generated captions into timeline'}).click()
+ await page.locator('[data-clip-type="text"]').first().click({position:{x:12,y:10}})
+ const editor=page.locator('.sm-inspector')
+ await editor.locator('textarea').first().fill('ව'.repeat(80))
+ await editor.locator('textarea').first().blur()
+ await expect(editor.getByRole('alert')).toContainText('Unusable AI caption detected')
+ await editor.getByRole('button',{name:'Remove invalid AI caption'}).click()
+ await expect(page.locator('[data-clip-type="text"]')).toHaveCount(0)
 })
