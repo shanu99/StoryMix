@@ -3,7 +3,7 @@ import {parseSrt,writeSrt} from './subtitles'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { ClipProperties } from './ClipProperties'
 import { AdvancedTimelineTools } from './AdvancedTimelineTools'
-import { TrackArrangement,TimelineZoomButtons } from './TrackArrangement'
+import { TrackArrangement,TimelineZoomButtons,TimelineDragAutoPan } from './TrackArrangement'
 import { VisualCanvasTools } from './VisualCanvasTools'
 import { ExportModal } from './ExportModal'
 import { btnDisabled, theme } from './theme'
@@ -431,6 +431,7 @@ export default function ProductionEditor() {
         style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
       >
         <AppHeader onExport={() => setShowExportModal(true)} />
+        <TimelineDragAutoPan />
         {showExportModal && (
           <ExportModal
             onClose={() => setShowExportModal(false)}
