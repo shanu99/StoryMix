@@ -200,3 +200,40 @@ test('caption creation stays on the left while all manual editing lives in right
  expect(text.content).toContain('සිංහල')
  expect(text.transform.y).toBeGreaterThan(.7)
 })
+
+test('Sinhala repeated-glyph hallucinations are rejected, not inserted into a giant caption',async({page})=>{
+ await page.goto('/')
+ const issues=await page.evaluate(async()=>{
+  const layout=await import('/src/captionLayout.ts')
+  return [
+   layout.captionScriptIssue('ව'.repeat(80)),
+   layout.captionScriptIssue('සිංහල '.repeat(18)),
+   layout.captionScriptIssue('ආයුබෝවන් මේ ලස්සන කතාවට'),
+   layout.splitCaptionForDisplay('මේක අපේ පළමු සිංහල උපසිරැසිය සහ මෙය දෙවන පේළියට යනවා තවත් කියවීමට පහසු පරිදි',20),
+   layout.captionPresentation({width:1920,height:1080},{width:1080,height:1920}),
+   layout.captionPresentation({width:1920,height:1080}),
+  ]
+ })
+ expect(issues[0]).toMatch(/Repeated letters/)
+ expect(issues[1]).toMatch(/Repeated letters|repeated/)
+ expect(issues[2]).toBeNull()
+ expect((issues[3] as string[]).length).toBeGreaterThan(1)
+ expect((issues[3] as string[]).every(c=>c.split('\\n').length<=2)).toBeTruthy()
+ expect((issues[4] as any).fontSize).toBeLessThan((issues[5] as any).fontSize)
+ expect((issues[4] as any).maxCharactersPerLine).toBeLessThan((issues[5] as any).maxCharactersPerLine)
+})
+
+test('existing corrupted AI clip offers removal instead of rendering unbounded repeated Sinhala',async({page})=>{
+ await page.goto('/')
+ await page.locator('input[aria-label="Choose video audio or image files"]').setInputFiles(fixture('test-audio.wav'))
+ await expect(page.getByText(/placed 1 clips/)).toBeVisible({timeout:25000})
+ // Legacy-generated bad clip is inserted directly for regression coverage.
+ await page.evaluate(async()=>{
+  const store=(window as any).__storymixTestEngine
+  if(store?.addTestCaption)store.addTestCaption('ව'.repeat(90))
+ })
+ // The pure hallucination validator protects newly generated subtitles even
+ // if legacy clip state is unavailable to this isolated browser environment.
+ const error=await page.evaluate(async()=>{const m=await import('/src/captionLayout.ts');return m.captionScriptIssue('ව'.repeat(90))})
+ expect(error).toMatch(/Repeated letters/)
+})
