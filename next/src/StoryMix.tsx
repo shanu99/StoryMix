@@ -4,6 +4,9 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { ClipProperties } from './ClipProperties'
 import { CreativePanel } from './CreativePanels'
 import { VoiceRecorder } from './VoiceRecorder'
+import { AdvancedAudioPanel } from './AdvancedAudioPanel'
+import { CaptionsWorkbench } from './CaptionsWorkbench'
+import { LocalProjectRecovery } from './LocalProjectRecovery'
 import { AdvancedTimelineTools } from './AdvancedTimelineTools'
 import { TrackArrangement,TimelineZoomButtons,TimelineDragAutoPan } from './TrackArrangement'
 import { VisualCanvasTools } from './VisualCanvasTools'
@@ -434,6 +437,7 @@ export default function ProductionEditor() {
       >
         <AppHeader onExport={() => setShowExportModal(true)} />
         <TimelineDragAutoPan />
+        <LocalProjectRecovery />
         {showExportModal && (
           <ExportModal
             onClose={() => setShowExportModal(false)}
@@ -447,8 +451,8 @@ export default function ProductionEditor() {
             <WorkspacePanel active={activeTool}>
               {activeTool==='Media' ? <AssetPanel style={{flex:1,minHeight:0}} /> :
                activeTool==='Text' ? <ElementsPanel style={{flex:1,minHeight:0}} /> :
-               activeTool==='Audio' ? <AudioPanelInfo /> :
-               activeTool==='Captions' ? <CaptionsPanelInfo /> :
+               activeTool==='Audio' ? <AdvancedAudioPanel /> :
+               activeTool==='Captions' ? <CaptionsWorkbench /> :
                activeTool==='Effects'||activeTool==='Filters'||activeTool==='Transitions'||activeTool==='Keyframes' ? <CreativePanel type={activeTool} /> :
                activeTool==='Record' ? <VoiceRecorder /> : undefined}
             </WorkspacePanel>
