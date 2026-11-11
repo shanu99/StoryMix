@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useState,type DragEvent as ReactDragEvent} from 'react'
 import {ArrowDown,ArrowUp,GripVertical,Layers,Lock,LockOpen,Magnet,Plus,ZoomIn,ZoomOut} from 'lucide-react'
-import {usePlaybackStore,useTracksStore,useTimelineEngine} from '@elah/editor'
+import {usePlaybackStore,useTracksStore,useSelectionStore,useTimelineEngine} from '@elah/editor'
 
 /** Compact native track order editor; reuses the TimelineEngine's undoable order mutations. */
 export function TrackArrangement(){
@@ -82,8 +82,35 @@ export function TimelineDragAutoPan(){
    const deltaY=e.clientY<rect.top+edge?-18:e.clientY>rect.bottom-edge?18:0
    if(deltaX||deltaY)scroll.scrollBy({left:deltaX,top:deltaY,behavior:'instant'})
   }
+  // The upstream clip block only selects one item on pointer-down.
+  // Capture modified pointer presses before that handler so users can
+  // Ctrl/Cmd-click across tracks and Shift-click ranges without breaking
+  // unmodified pointer dragging, trimming or default selection.
+  const onSelect=(e:PointerEvent)=>{
+   if(e.button!==0||!(e.shiftKey||e.ctrlKey||e.metaKey))return
+   if(!(e.target instanceof Element))return
+   const clipNode=e.target.closest<HTMLElement>('[data-clip-id]')
+   if(!clipNode?.closest('[data-elah-timeline-root]'))return
+   if(clipNode.closest('.elah-trim-handle'))return
+   const id=clipNode.dataset.clipId
+   if(!id)return
+   e.stopPropagation()
+   const store=useSelectionStore.getState()
+   if(e.ctrlKey||e.metaKey){store.toggleClipSelection(id);return}
+   const {tracks,clips}=useTracksStore.getState()
+   const lane=tracks.find(t=>(clips[t.id]??[]).some(c=>c.id===id))
+   const anchor=store.anchorClipId
+   const ordered=lane?[...(clips[lane.id]??[])].sort((a,b)=>a.startFrame-b.startFrame):[]
+   const a=ordered.findIndex(c=>c.id===anchor),b=ordered.findIndex(c=>c.id===id)
+   if(a>=0&&b>=0)store.addClips(ordered.slice(Math.min(a,b),Math.max(a,b)+1).map(c=>c.id))
+   else store.addClips([id])
+  }
   document.addEventListener('dragover',onDrag,true)
-  return()=>document.removeEventListener('dragover',onDrag,true)
+  document.addEventListener('pointerdown',onSelect,true)
+  return()=>{
+   document.removeEventListener('dragover',onDrag,true)
+   document.removeEventListener('pointerdown',onSelect,true)
+  }
  },[])
  return null
 }
