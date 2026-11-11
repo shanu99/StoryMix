@@ -79,7 +79,7 @@ const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }
   // The first visual source defines the canvas; never override an existing
   // edit or a manually selected stage ratio on later imports.
   const hasVisual=Object.values(engine.getProject().clips).flat().some(c=>c.type==='video'||c.type==='image');
-  if(!hasVisual&&(asset.type==='video'||asset.type==='image')){
+  if(!hasVisual&&(asset.kind==='video'||asset.kind==='image')){
    const size=videoStageFromMedia(asset.width??0,asset.height??0)
    if(size)engine.setStage(size.width,size.height)
   }
