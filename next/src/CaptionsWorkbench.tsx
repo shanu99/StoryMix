@@ -1,3 +1,4 @@
+import {SinhalaAutoCaptions} from './SinhalaAutoCaptions'
 import {useState} from 'react'
 import {Captions,Plus,Paintbrush,FileText} from 'lucide-react'
 import {useTimelineEngine,usePlaybackStore,useSelectionStore,useTracksStore,type Clip} from '@elah/editor'
@@ -41,6 +42,7 @@ export function CaptionsWorkbench(){
  }
  return <div style={{padding:13,display:'grid',gap:11,color:'#ddecfa',fontSize:12}}>
   <strong style={{color:'#8addff',letterSpacing:'.09em',fontSize:11}}>SINHALA / ENGLISH CAPTIONS</strong>
+  <SinhalaAutoCaptions />
   <p style={{color:'#91b2c8',fontSize:11,margin:0,lineHeight:1.6}}>Import existing SRT using the top Captions menu, or create captions at the playhead below. All text renders into the exported video.</p>
   <label style={{display:'grid',gap:5}}>Caption text
    <textarea aria-label="New caption text" rows={3} value={text} onChange={e=>setText(e.target.value)} style={{...input,resize:'vertical',fontFamily:'Noto Sans Sinhala, sans-serif'}} placeholder="සිංහල හෝ English caption…"/>
