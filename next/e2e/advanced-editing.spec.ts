@@ -73,3 +73,24 @@ test('Ripple delete closes gap on track, plain delete does not',async({page})=>{
  await page.getByRole('button',{name:'Undo'}).click()
  await expect(page.locator('[data-clip-type="video"]')).toHaveCount(2)
 })
+
+test('icon-only timeline controls expose names and detailed hover tooltips',async({page})=>{
+ await load(page)
+ const toolbar=page.getByLabel('Advanced timeline edit tools')
+ const buttons=toolbar.locator('button')
+ expect(await buttons.count()).toBeGreaterThanOrEqual(12)
+ for(const label of ['Split','Split All','Trim Start','Trim End','Delete','Ripple Delete','Duplicate','Prev Cut','Next Cut','−1 Frame','+1 Frame','Snap On']){
+   const button=toolbar.getByRole('button',{name:label,exact:true})
+   await expect(button).toBeVisible()
+   await expect(button).toHaveText('')
+ }
+ const splitAll=toolbar.getByRole('button',{name:'Split All'})
+ await splitAll.hover()
+ const tooltip=page.getByRole('tooltip')
+ await expect(tooltip).toBeVisible()
+ await expect(tooltip).toContainText('Split All')
+ await expect(tooltip).toContainText('Blade across unlocked tracks')
+ await toolbar.getByRole('button',{name:'Snap On'}).focus()
+ await expect(tooltip).toContainText('Snap On')
+ await expect(tooltip).toContainText('Toggle magnetic snapping')
+})
