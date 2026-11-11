@@ -57,39 +57,48 @@ async function recognize(req:Start){
  const choice=MODELS[req.model]??MODELS.sinhala
  const progress=(event:{status?:string;file?:string;progress?:number})=>{
   if(event.status==='progress'&&Number.isFinite(event.progress)){
-   emit({type:'progress',stage:'Downloading Sinhala speech recognition model',percent:Math.round(event.progress!)})
+   emit({type:'progress',stage:'Downloading speech recognition model',percent:Math.round(event.progress!)})
   }else if(event.status==='initiate'){
-   emit({type:'progress',stage:'Loading model assets'})
+   emit({type:'progress',stage:'Loading model assets…'})
   }else if(event.status==='done'){
-   emit({type:'progress',stage:'Preparing speech recognizer'})
+   emit({type:'progress',stage:'Preparing speech recognizer…'})
   }
  }
  env.allowLocalModels=false
  const gpu=req.preferGpu&&typeof navigator!=='undefined'&&'gpu' in navigator
- emit({type:'progress',stage:'Loading '+(req.model==='sinhala'?'Sinhala-tuned':'multilingual')+' Whisper model'})
  type LocalPipeline=(audio:Float32Array,options:{language:string;task:string;return_timestamps:boolean})=>Promise<unknown>
  const loadAsr=pipeline as unknown as (task:'automatic-speech-recognition',model:string,options:{device:'wasm'|'webgpu';dtype:'q8'|'fp32';progress_callback:(event:{status?:string;file?:string;progress?:number})=>void})=>Promise<LocalPipeline>
- let transcriber:LocalPipeline
+ // The Sinhala-fine-tuned community export has produced "Unsupported model
+ // type: whisper" on some browser/Transformers.js combinations. Instead of
+ // breaking the button, retry with Hugging Face's maintained and widely-used
+ // multilingual ONNX export, explicitly forcing Sinhala transcription.
+ // Script checks in the Inspector reject romanized or non-Sinhala output.
+ const candidates=req.model==='sinhala'
+  ? [choice,'onnx-community/whisper-small']
+  : [choice]
+ let transcriber:LocalPipeline|undefined
  let chosen=choice
- try{
-  transcriber=await loadAsr('automatic-speech-recognition',choice,{
-   device:gpu?'webgpu':'wasm',
-   dtype:gpu?'fp32':'q8',
-   progress_callback:progress,
-  })
- }catch(gpuError){
-  if(gpu){
-   emit({type:'progress',stage:'GPU unavailable. Retrying CPU/WASM…'})
-   transcriber=await loadAsr('automatic-speech-recognition',choice,{
-    device:'wasm',dtype:'q8',progress_callback:progress,
-   })
-  }else {
-   // Never silently switch from Sinhala-trained recognition to a generic
-   // multilingual model: it can return romanized Singlish or another script.
-   // A user may explicitly choose the alternate model in Advanced settings.
-   throw gpuError
+ const failures:string[]=[]
+ for(const modelId of candidates){
+  if(transcriber)break
+  for(const device of gpu?['webgpu','wasm'] as const:['wasm'] as const){
+   emit({type:'progress',stage:modelId===choice?'Loading Sinhala speech model…':'Using compatible Whisper model for Sinhala…'})
+   try{
+    transcriber=await loadAsr('automatic-speech-recognition',modelId,{
+     device,dtype:device==='webgpu'?'fp32':'q8',progress_callback:progress,
+    })
+    chosen=modelId
+    break
+   }catch(error){
+    const message=error instanceof Error?error.message:String(error)
+    failures.push(modelId+' / '+device+': '+message)
+    if(modelId===choice&&req.model==='sinhala'&&/unsupported model type|unsupported model|cannot load|not found|404|failed to fetch|model file/i.test(message)){
+     break
+    }
+   }
   }
  }
+ if(!transcriber)throw Error('Could not load an available Whisper model. '+failures.join(' | ').slice(0,600))
  const framesPerWindow=WINDOW_SECONDS*SAMPLE_RATE
  const total=Math.ceil(waveform.length/framesPerWindow)
  const normalized:CaptionSegment[]=[]
