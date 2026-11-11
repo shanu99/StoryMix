@@ -2,6 +2,7 @@ import {FolderOpen,Save,Upload,Subtitles,Download,ChevronDown,Undo2,Redo2,Clappe
 import {parseSrt,writeSrt} from './subtitles'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { ClipProperties } from './ClipProperties'
+import { AdvancedTimelineTools } from './AdvancedTimelineTools'
 import { ExportModal } from './ExportModal'
 import { btnDisabled, theme } from './theme'
 import {WorkspaceNavigation,WorkspacePanel,AudioPanelInfo,CaptionsPanelInfo,type WorkspaceSection} from './WorkspaceNavigation'
@@ -234,13 +235,6 @@ const TimelineControls = memo(function TimelineControls({
   const zoom = usePlaybackStore((s) => s.zoom)
   const setZoom = usePlaybackStore((s) => s.setZoom)
   const stage = useTracksStore((s) => s.stage)
-  const hasSelection = useSelectionStore((s) => s.selectedClipIds.size === 1)
-
-  const splitAtPlayhead = useCallback(() => {
-    const result = splitClipAtPlayhead(engine)
-    if (!result.ok) console.warn('[example] split failed:', result.reason)
-  }, [engine])
-
   const aspectActive = (w: number, h: number) =>
     Math.abs(stage.width / stage.height - w / h) < 0.001
 
@@ -274,17 +268,8 @@ const TimelineControls = memo(function TimelineControls({
         flexShrink: 0,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <button
-          type="button"
-          className="elah-toolbar-btn"
-          style={btnDisabled(!hasSelection)}
-          disabled={!hasSelection}
-          onClick={splitAtPlayhead}
-          title="Split at playhead (S)"
-        >
-          ✂ Split
-        </button>
+      <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '1 1 auto' }}>
+        <AdvancedTimelineTools />
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
