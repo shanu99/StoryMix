@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useState,type ReactNode,type CSSProperties} from 'react'
+import {useCallback,useEffect,useState,useRef,type ReactNode,type CSSProperties} from 'react'
 import {createPortal} from 'react-dom'
 import {usePlaybackStore,useSelectionStore,useTracksStore,useTimelineEngine,type Clip} from '@elah/editor'
 import {Scissors,Layers3,Trash2,Copy,Magnet,SkipBack,SkipForward,ChevronLeft,ChevronRight,AlignStartHorizontal,AlignEndHorizontal,Delete} from 'lucide-react'
@@ -10,10 +10,16 @@ const iconButtonStyle:CSSProperties={
   padding:0,border:'1px solid #344759',borderRadius:7,background:'#182737',
   color:'#e5f3fc',cursor:'pointer',flexShrink:0
 }
+let activeTimelineTooltipClose:(()=>void)|null=null
 /** An accessible icon-only control with an instant descriptive hover/focus tooltip. */
 function TimelineIconButton({label,title,run,enabled=true,active=false,icon}:IconButtonProps){
   const [tooltip,setTooltip]=useState<{left:number;top:number;below:boolean}|null>(null)
+  const closeRef=useRef<()=>void>(()=>setTooltip(null))
+  const hide=()=>{if(activeTimelineTooltipClose===closeRef.current)activeTimelineTooltipClose=null;setTooltip(null)}
+  useEffect(()=>()=>{if(activeTimelineTooltipClose===closeRef.current)activeTimelineTooltipClose=null},[])
   const show=(element:HTMLElement)=>{
+    if(activeTimelineTooltipClose&&activeTimelineTooltipClose!==closeRef.current)activeTimelineTooltipClose()
+    activeTimelineTooltipClose=closeRef.current
     const rect=element.getBoundingClientRect()
     const left=Math.max(10,Math.min(window.innerWidth-244,rect.left+rect.width/2-120))
     const below=rect.top<116
@@ -21,8 +27,8 @@ function TimelineIconButton({label,title,run,enabled=true,active=false,icon}:Ico
   }
   return <>
     <span style={{display:'inline-flex',flexShrink:0}} onMouseEnter={e=>show(e.currentTarget)}
-      onMouseLeave={()=>setTooltip(null)} onFocusCapture={e=>show(e.currentTarget)}
-      onBlurCapture={()=>setTooltip(null)}>
+      onMouseLeave={hide} onFocusCapture={e=>show(e.currentTarget)}
+      onBlurCapture={hide}>
       <button type="button" className="sm-advanced-edit-action" aria-label={label}
         onClick={run} disabled={!enabled}
         style={{...iconButtonStyle,...(!enabled?{opacity:.38,cursor:'not-allowed'}:{}),
