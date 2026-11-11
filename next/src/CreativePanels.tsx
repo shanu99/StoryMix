@@ -121,7 +121,7 @@ function KeyframePane({clip}:{clip:Clip}){
  const value=channel==='opacity'?clip.opacity??1:channel==='volume'?clip.volume??1:channel==='scale'?base.scale:channel==='rotation'?base.rotation:channel==='x'?base.x:base.y
  const [numeric,setNumeric]=useState<number|null>(null)
  const write=()=>{
-  const patch=setKeyframe(clip,channel,local,{stage,content:asset?.width&&asset?.height?{width:asset.width,height:asset.height}:undefined},numeric??value,{easing:'ease-in-out'})
+  const patch=setKeyframe(clip,channel,local,{stage,content:asset?.width&&asset?.height?{width:asset.width,height:asset.height}:undefined},numeric??value,{easing:'sine-in-out'})
   engine.updateClip(clip.id,clip.trackId,patch)
  }
  return <div style={outer}>
