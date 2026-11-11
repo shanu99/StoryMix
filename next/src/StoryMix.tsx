@@ -76,12 +76,12 @@ const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }
   const [message,setMessage]=useState('')
   const download=(blob:Blob,name:string)=>{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}
   const importMedia=async(files:File[])=>{setMessage('Importing '+files.length+' media files...');try{const result=await importFiles(files);let added=0;for(const asset of result.imported){
-  // The first visual source defines the canvas; never override an existing
-  // edit or a manually selected stage ratio on later imports.
+  // The first actual video defines the canvas; images can be overlays.
+  // Respect manual portrait/square stage selection and later video imports.
   const currentProject=engine.getProject()
-  const hasVisual=Object.values(currentProject.clips).flat().some(c=>c.type==='video'||c.type==='image');
+  const hasVideo=Object.values(currentProject.clips).flat().some(c=>c.type==='video');
   const unconfiguredStage=currentProject.stage.width===1920&&currentProject.stage.height===1080
-  if(!hasVisual&&unconfiguredStage&&(asset.kind==='video'||asset.kind==='image')){
+  if(!hasVideo&&unconfiguredStage&&asset.kind==='video'){
    const size=videoStageFromMedia(asset.width??0,asset.height??0)
    if(size)engine.setStage(size.width,size.height)
   }
