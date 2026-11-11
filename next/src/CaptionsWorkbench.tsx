@@ -1,20 +1,19 @@
-import {SinhalaAutoCaptions} from './SinhalaAutoCaptions'
 import {useState} from 'react'
-import {Captions,Plus,Paintbrush,FileText} from 'lucide-react'
+import {Plus,Paintbrush,ChevronDown} from 'lucide-react'
 import {useTimelineEngine,usePlaybackStore,useSelectionStore,useTracksStore,type Clip} from '@elah/editor'
-const btn={border:'1px solid #38546a',borderRadius:7,background:'#192d40',color:'#daedfa',padding:'9px 11px',cursor:'pointer'} as const
-const input={width:'100%',border:'1px solid #36516a',borderRadius:7,background:'#142739',color:'#e7f5fc',padding:'9px'} as const
+import {captionPresentation,wrapCaption} from './captionLayout'
+import {SinhalaAutoCaptions} from './SinhalaAutoCaptions'
+
+const btn={border:'1px solid #36536a',borderRadius:8,background:'#183044',color:'#e4f4ff',padding:'9px 11px',cursor:'pointer'} as const
+const input={width:'100%',border:'1px solid #36516a',borderRadius:8,background:'#101f2e',color:'#e8f7ff',padding:'10px',fontFamily:'Noto Sans Sinhala, sans-serif'} as const
 type Style='clean'|'bold'|'cinematic'
-const looks:Record<Style,Partial<Clip>>={
- clean:{fontFamily:'Noto Sans Sinhala',fontSize:46,color:'#ffffff',textOutline:{color:'#101820',width:3},textShadow:{color:'#000000',blur:6,offsetX:1,offsetY:2}},
- bold:{fontFamily:'Noto Sans Sinhala',fontSize:57,color:'#ffffff',textOutline:{color:'#020b16',width:6},textShadow:{color:'#000000',blur:11,offsetX:1,offsetY:3}},
- cinematic:{fontFamily:'Noto Sans Sinhala',fontSize:47,color:'#fff4dc',textOutline:{color:'#000000',width:3},textShadow:{color:'#000000',blur:13,offsetX:2,offsetY:4}}
-}
+
 export function CaptionsWorkbench(){
  const engine=useTimelineEngine()
  const current=usePlaybackStore(s=>s.currentFrame)
  const tracks=useTracksStore(s=>s.tracks)
  const all=useTracksStore(s=>s.clips)
+ const stage=useTracksStore(s=>s.stage)
  const ids=useSelectionStore(s=>s.selectedClipIds)
  const [text,setText]=useState('')
  const [duration,setDuration]=useState(3)
@@ -22,44 +21,70 @@ export function CaptionsWorkbench(){
  const [notice,setNotice]=useState('')
  const captionClips=tracks.filter(t=>t.kind==='elements'&&/caption/i.test(t.name)).flatMap(t=>all[t.id]??[]).filter(c=>c.type==='text')
  const selected=captionClips.find(c=>ids.has(c.id))
+ const layout=captionPresentation(stage)
+ const look=(chosen:Style):Partial<Clip>=>{
+  const fontSize=Math.round(layout.fontSize*(chosen==='clean'?.88:chosen==='cinematic'?.96:1))
+  return {
+   fontFamily:'Noto Sans Sinhala',fontSize,color:chosen==='cinematic'?'#fff4df':'#ffffff',
+   textOutline:{color:'#071320',width:chosen==='bold'?Math.max(3,Math.round(fontSize*.1)):Math.max(2,Math.round(fontSize*.06))},
+   textShadow:{color:'#000000',blur:Math.max(5,Math.round(fontSize*.16)),offsetX:1,offsetY:3},
+   textAlign:'center',
+   transform:{x:layout.x,y:layout.y,scale:1,rotation:0,anchor:{x:.5,y:.5}},
+  }
+ }
  const add=()=>{
-  if(!text.trim()){setNotice('Write caption text first.');return}
+  if(!text.trim()){setNotice('Enter caption text first.');return}
   const start=Math.max(0,Math.round(current)),frames=Math.max(1,Math.round(duration*30))
   let target=tracks.find(t=>t.kind==='elements'&&/caption/i.test(t.name)&&!t.locked&&(all[t.id]??[]).every(c=>c.startFrame+c.durationFrames<=start||c.startFrame>=start+frames))
   if(!target)target=engine.addTrack('elements',{name:'Captions'})
   try{
-   const created=engine.addClip({type:'text',trackId:target.id,name:'Caption',startFrame:start,durationFrames:frames,text:{content:text.trim(),fontFamily:looks[style].fontFamily,fontSize:looks[style].fontSize,color:looks[style].color}})
-   engine.updateClip(created.id,created.trackId,{textOutline:looks[style].textOutline,textShadow:looks[style].textShadow})
-   setNotice('Caption added at playhead. Select it to edit timing, text and animation in Inspector.')
+   const properties=look(style)
+   const created=engine.addClip({type:'text',trackId:target.id,name:'Caption',startFrame:start,durationFrames:frames,
+    text:{content:wrapCaption(text.trim(),layout.maxCharactersPerLine),fontFamily:'Noto Sans Sinhala',fontSize:properties.fontSize,color:properties.color,textAlign:'center'}})
+   engine.updateClip(created.id,created.trackId,properties)
+   setNotice('Caption added at the correct position for the video canvas.')
    setText('')
-  }catch(e){setNotice('Caption could not be inserted: '+String(e))}
+  }catch(e){setNotice('Could not add caption: '+String(e))}
  }
- const apply=(allCaptions:boolean)=>{
-  const targets=allCaptions?captionClips:selected?[selected]:[]
+ const apply=(every:boolean)=>{
+  const targets=every?captionClips:selected?[selected]:[]
   if(!targets.length){setNotice('Select a caption or import SRT first.');return}
-  engine.batch(()=>{targets.forEach(c=>{if(!engine.isTrackLocked(c.trackId))engine.updateClip(c.id,c.trackId,looks[style])})},'Apply caption style')
-  setNotice('Updated '+targets.length+' captions.')
+  engine.batch(()=>{for(const c of targets)if(!engine.isTrackLocked(c.trackId))engine.updateClip(c.id,c.trackId,look(style))},'Apply caption style')
+  setNotice('Styled '+targets.length+' captions for '+stage.width+'×'+stage.height+'.')
  }
- return <div style={{padding:13,display:'grid',gap:11,color:'#ddecfa',fontSize:12}}>
-  <strong style={{color:'#8addff',letterSpacing:'.09em',fontSize:11}}>SINHALA / ENGLISH CAPTIONS</strong>
-  <SinhalaAutoCaptions />
-  <p style={{color:'#91b2c8',fontSize:11,margin:0,lineHeight:1.6}}>Import existing SRT using the top Captions menu, or create captions at the playhead below. All text renders into the exported video.</p>
-  <label style={{display:'grid',gap:5}}>Caption text
-   <textarea aria-label="New caption text" rows={3} value={text} onChange={e=>setText(e.target.value)} style={{...input,resize:'vertical',fontFamily:'Noto Sans Sinhala, sans-serif'}} placeholder="සිංහල හෝ English caption…"/>
-  </label>
-  <label style={{display:'grid',gap:5}}>Duration (seconds)
-   <input aria-label="New caption duration" type="number" min={.1} max={60} step={.1} value={duration} onChange={e=>setDuration(Math.max(.1,Math.min(60,Number(e.target.value)||3)))} style={input}/>
-  </label>
-  <button type="button" onClick={add} style={{...btn,display:'flex',gap:7,alignItems:'center'}}><Plus size={16}/> Add caption at playhead</button>
-  <span style={{fontSize:11,color:'#7ad5fa',letterSpacing:'.08em',marginTop:4}}>CAPTION STYLE PRESETS</span>
-  <select aria-label="Caption style preset" value={style} style={input} onChange={e=>setStyle(e.target.value as Style)}>
-   <option value="clean">Clean — white</option><option value="bold">Bold — mobile</option><option value="cinematic">Cinematic — warm white</option>
-  </select>
-  <div style={{display:'flex',gap:7,flexWrap:'wrap'}}>
-   <button type="button" style={btn} onClick={()=>apply(false)}><Paintbrush size={14} style={{verticalAlign:'middle'}}/> Selected</button>
-   <button type="button" style={btn} onClick={()=>apply(true)}><Paintbrush size={14} style={{verticalAlign:'middle'}}/> All captions ({captionClips.length})</button>
+ return <div style={{display:'grid',gap:12,padding:'12px 12px 20px',color:'#e9f6ff',fontSize:12}}>
+  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
+   <strong style={{fontSize:12,color:'#9be5ff'}}>SINHALA / ENGLISH CAPTIONS</strong>
+   <span aria-label="Detected video aspect ratio" style={{color:'#7edaf5',fontSize:10,whiteSpace:'nowrap'}}>{stage.width}×{stage.height} · Auto fit</span>
   </div>
-  <div style={{fontSize:11,color:'#9dbacc',lineHeight:1.6,display:'flex',gap:6}}><FileText size={16}/> Sinhala auto-speech transcription requires a supported speech-recognition backend and is not enabled yet. SRT import, manual captions and styling work locally.</div>
-  {notice&&<output role="status" style={{color:'#a3dcf1',fontSize:11}}>{notice}</output>}
+  <SinhalaAutoCaptions/>
+  <details style={{border:'1px solid #34495d',borderRadius:9,background:'#112334'}}>
+   <summary style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:12,cursor:'pointer',fontWeight:600,listStyle:'none'}} aria-label="Manual captions and styling">
+    <span>Manual captions & styling</span><ChevronDown size={15}/>
+   </summary>
+   <div style={{display:'grid',gap:10,padding:'0 12px 12px'}}>
+    <label style={{display:'grid',gap:6}}>Caption text
+     <textarea aria-label="New caption text" rows={3} value={text} onChange={e=>setText(e.target.value)}
+      style={{...input,resize:'vertical'}} placeholder="සිංහල හෝ English caption…"/>
+    </label>
+    <label style={{display:'grid',gap:6}}>Duration (seconds)
+     <input aria-label="New caption duration" type="number" min={.1} max={60} step={.1} value={duration}
+      onChange={e=>setDuration(Math.max(.1,Math.min(60,Number(e.target.value)||3)))} style={input}/>
+    </label>
+    <button type="button" onClick={add} style={{...btn,display:'flex',gap:7,alignItems:'center',justifyContent:'center'}}>
+     <Plus size={15}/> Add caption at playhead
+    </button>
+    <label style={{display:'grid',gap:6}}>Caption appearance
+     <select aria-label="Caption style preset" value={style} style={input} onChange={e=>setStyle(e.target.value as Style)}>
+      <option value="clean">Clean white</option><option value="bold">Bold (mobile)</option><option value="cinematic">Cinematic</option>
+     </select>
+    </label>
+    <div style={{display:'flex',gap:7,flexWrap:'wrap'}}>
+     <button type="button" style={btn} onClick={()=>apply(false)}><Paintbrush size={13} style={{verticalAlign:'middle'}}/> Selected</button>
+     <button type="button" style={btn} onClick={()=>apply(true)}><Paintbrush size={13} style={{verticalAlign:'middle'}}/> All captions ({captionClips.length})</button>
+    </div>
+   </div>
+  </details>
+  {notice&&<output role="status" style={{color:'#9fddf3',fontSize:11}}>{notice}</output>}
  </div>
 }
