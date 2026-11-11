@@ -160,7 +160,7 @@ const PreviewTransport = memo(function PreviewTransport() {
   const timecodeRef = useRef<HTMLSpanElement>(null)
   const seekRef = useRef<HTMLInputElement>(null)
   const seek=(raw:string)=>{
-    const match=raw.trim().match(/^(\\d{1,2}):(\\d{1,2}):(\\d{1,2}):(\\d{1,2})$/)
+    const match=raw.trim().match(/^(\d{1,2}):(\d{1,2}):(\d{1,2}):(\d{1,2})$/)
     if(!match||Number(match[2])>=60||Number(match[3])>=60||Number(match[4])>=FPS){
       if(seekRef.current)seekRef.current.value=framesToTimecode(usePlaybackStore.getState().currentFrame,FPS)
       return
