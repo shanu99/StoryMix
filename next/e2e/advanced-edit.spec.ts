@@ -22,7 +22,8 @@ async function snapshot(page:Page) {
 
 test('CapCut-style trim to playhead preserves original media and supports undo',async({page})=>{
   await addVideo(page)
-  await page.getByText('00:01',{exact:true}).last().click()
+  await page.getByRole('textbox',{name:'Seek timecode'}).fill('00:00:01:00')
+  await page.getByRole('textbox',{name:'Seek timecode'}).press('Enter')
   await page.getByRole('button',{name:'Trim Start'}).click()
   let clips=await snapshot(page)
   expect(clips).toHaveLength(1)
@@ -30,7 +31,8 @@ test('CapCut-style trim to playhead preserves original media and supports undo',
   expect(clips[0].startFrame).toBeLessThanOrEqual(31)
   expect(clips[0].sourceStartFrame).toBeGreaterThan(0)
   expect(clips[0].durationFrames).toBeLessThan(90)
-  await page.getByText('00:02',{exact:true}).last().click()
+  await page.getByRole('textbox',{name:'Seek timecode'}).fill('00:00:02:00')
+  await page.getByRole('textbox',{name:'Seek timecode'}).press('Enter')
   await page.getByRole('button',{name:'Trim End'}).click()
   clips=await snapshot(page)
   expect(clips[0].durationFrames).toBeGreaterThanOrEqual(29)
@@ -64,7 +66,8 @@ test('Duplicate insert, ripple delete and one-step undo keep timeline contiguous
 
 test('Keyboard shortcuts ignore text input and trigger editor actions on selected clip',async({page})=>{
   await addVideo(page)
-  await page.getByText('00:01',{exact:true}).last().click()
+  await page.getByRole('textbox',{name:'Seek timecode'}).fill('00:00:01:00')
+  await page.getByRole('textbox',{name:'Seek timecode'}).press('Enter')
   await page.keyboard.press('q')
   let clips=await snapshot(page)
   expect(clips[0].startFrame).toBeGreaterThan(0)
