@@ -21,10 +21,25 @@ export function ClipProperties(){
   const crop={x:0,y:0,width:1,height:1,...clip.crop}
   return <div className="sm-media-properties" style={{padding:'13px 14px',overflowY:'auto',color:'#e7f5ff'}}>
     <div style={{marginBottom:15,borderBottom:'1px solid #354457',paddingBottom:12}}><strong style={{fontSize:13,wordBreak:'break-word'}}>{clip.name}</strong><div style={{fontSize:10,color:theme.textMuted,marginTop:6}}>{clip.type.toUpperCase()} · {(clip.durationFrames/30).toFixed(2)}s</div></div>
-    <section aria-label="Timing controls"><div className="sm-inspector-group-heading">TIMING</div><div style={{display:'flex',gap:9}}>
-      <NumberField label="Start (sec)" value={clip.startFrame/30} min={0} step={.1} onChange={v=>update({startFrame:Math.round(v*30)})}/>
-      <NumberField label="Duration (sec)" value={clip.durationFrames/30} min={1/30} step={.1} onChange={v=>update({durationFrames:Math.max(1,Math.round(v*30))})}/>
-    </div>{clip.type==='video'&&<NumberField label="Speed (×)" value={clip.speed??1} min={.25} max={4} step={.25} onChange={v=>engine.setClipSpeed(clip.id,clip.trackId,v)}/>}</section>
+    <section aria-label="Timing controls"><div className="sm-inspector-group-heading">TIMING · FRAME ACCURATE</div><div style={{display:'flex',gap:9}}>
+      <NumberField label="Start (sec)" value={clip.startFrame/30} min={0} step={1/30} onChange={v=>engine.moveClip(clip.id,clip.trackId,clip.trackId,Math.round(v*30))}/>
+      <NumberField label="Duration (sec)" value={clip.durationFrames/30} min={1/30} step={1/30} onChange={v=>engine.trimClip(clip.id,clip.trackId,clip.startFrame,Math.max(1,Math.round(v*30)))}/>
+    </div>
+    <div style={{fontSize:10,color:theme.textMuted,marginBottom:10}}>Source in: {(clip.sourceStartFrame/30).toFixed(2)}s · Out: {((clip.sourceStartFrame+clip.durationFrames*(clip.speed??1))/30).toFixed(2)}s</div>
+    <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12}}>
+      <button type="button" className="sm-top-action" title="Move one frame earlier (without trimming)" onClick={()=>engine.moveClip(clip.id,clip.trackId,clip.trackId,Math.max(0,clip.startFrame-1))}>Move −1f</button>
+      <button type="button" className="sm-top-action" title="Move one frame later (without trimming)" onClick={()=>engine.moveClip(clip.id,clip.trackId,clip.trackId,clip.startFrame+1)}>Move +1f</button>
+      <button type="button" className="sm-top-action" title="Trim end one frame earlier" onClick={()=>engine.trimClip(clip.id,clip.trackId,clip.startFrame,Math.max(1,clip.durationFrames-1))}>Trim −1f</button>
+      <button type="button" className="sm-top-action" title="Extend end one frame (if original media permits)" onClick={()=>engine.trimClip(clip.id,clip.trackId,clip.startFrame,clip.durationFrames+1)}>Extend +1f</button>
+    </div>
+    {clip.type==='video'&&<>
+      <NumberField label="Speed (×)" value={clip.speed??1} min={.25} max={4} step={.25} onChange={v=>engine.setClipSpeed(clip.id,clip.trackId,v)}/>
+      <div style={{display:'flex',gap:6,marginBottom:12}}>
+        {[.5,1,1.5,2].map(speed=><button type="button" key={speed} className="sm-top-action" title={`Set playback speed to ${speed}x`} onClick={()=>engine.setClipSpeed(clip.id,clip.trackId,speed)}
+          style={{borderColor:Math.abs((clip.speed??1)-speed)<.001?'#16B9F5':undefined}}>{speed}×</button>)}
+      </div>
+    </>}
+    </section>
     {isVisual&&<section aria-label="Transform controls"><div className="sm-inspector-group-heading">TRANSFORM</div>
       <div style={{display:'flex',gap:9}}><NumberField label="X (%)" value={transform.x*100} step={1} onChange={v=>update({transform:{...transform,x:v/100}})}/><NumberField label="Y (%)" value={transform.y*100} step={1} onChange={v=>update({transform:{...transform,y:v/100}})}/></div>
       <div style={{display:'flex',gap:9}}><NumberField label="Scale" value={transform.scale} min={.01} max={20} step={.1} onChange={v=>update({transform:{...transform,scale:v}})}/><NumberField label="Rotate (°)" value={transform.rotation*180/Math.PI} step={1} onChange={v=>update({transform:{...transform,rotation:v*Math.PI/180}})}/></div>
