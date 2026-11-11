@@ -10,6 +10,7 @@
  */
 import {pipeline,env} from '@huggingface/transformers'
 import {cleanRecognition,splitLongCaptions,type CaptionSegment} from './sinhalaAsr'
+import {captionScriptIssue} from './captionLayout'
 
 type Start={
  type:'start'
@@ -66,7 +67,7 @@ async function recognize(req:Start){
  }
  env.allowLocalModels=false
  const gpu=req.preferGpu&&typeof navigator!=='undefined'&&'gpu' in navigator
- type LocalPipeline=(audio:Float32Array,options:{language:string;task:string;return_timestamps:boolean})=>Promise<unknown>
+ type LocalPipeline=(audio:Float32Array,options:{language:string;task:string;return_timestamps:boolean;no_repeat_ngram_size?:number;repetition_penalty?:number;do_sample?:boolean})=>Promise<unknown>
  const loadAsr=pipeline as unknown as (task:'automatic-speech-recognition',model:string,options:{device:'wasm'|'webgpu';dtype:'q8'|'fp32';progress_callback:(event:{status?:string;file?:string;progress?:number})=>void})=>Promise<LocalPipeline>
  // The Sinhala-fine-tuned community export has produced "Unsupported model
  // type: whisper" on some browser/Transformers.js combinations. Instead of
@@ -102,6 +103,7 @@ async function recognize(req:Start){
  const framesPerWindow=WINDOW_SECONDS*SAMPLE_RATE
  const total=Math.ceil(waveform.length/framesPerWindow)
  const normalized:CaptionSegment[]=[]
+ let rejected=0
  for(let index=0;index<total;index++){
   const from=index*framesPerWindow
   const to=Math.min(waveform.length,from+framesPerWindow)
@@ -116,6 +118,7 @@ async function recognize(req:Start){
   if(rms>=0.0006){
    const raw=await transcriber(excerpt,{
     language:'sinhala',task:'transcribe',return_timestamps:true,
+    no_repeat_ngram_size:3,repetition_penalty:1.15,do_sample:false,
    })
    const result=(Array.isArray(raw)?raw[0]:raw) as {text?:string;chunks?:Array<{text:string;timestamp:[number,number|null]}>}
    const chunks=(result.chunks?.length?result.chunks:[{
@@ -124,6 +127,7 @@ async function recognize(req:Start){
     text:item.text,timestamp:[item.timestamp?.[0]??0,item.timestamp?.[1]??chunkDuration],
    }))
    for(const caption of splitLongCaptions(cleanRecognition(chunks,chunkDuration))){
+    if(captionScriptIssue(caption.text)){rejected++;continue}
     const absolute={...caption,start:start+caption.start,end:start+caption.end}
     normalized.push(absolute)
     emit({type:'caption',chunk:absolute,finished:index+1,total})
@@ -132,5 +136,6 @@ async function recognize(req:Start){
   emit({type:'progress',stage:'Transcribing audio locally',finished:index+1,total,
    percent:Math.round((index+1)/total*100)})
  }
- emit({type:'complete',total,finished:total,model:chosen,message:normalized.length+' captions generated'})
+ if(!normalized.length&&rejected>0)throw Error('Speech recognition returned repeated or unreadable characters. No captions were added. Try clearer audio or another model under Advanced settings.')
+ emit({type:'complete',total,finished:total,model:chosen,message:normalized.length+' captions generated'+(rejected?' ('+rejected+' unreadable segment(s) rejected)':'')})
 }
