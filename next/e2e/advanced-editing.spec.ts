@@ -54,8 +54,9 @@ test('Snap, frame stepping, cut navigation, exact inspector move and trim',async
  expect(after.durationFrames).toBe(89)
  expect(after.sourceStartFrame).toBe(0)
  await page.getByRole('button',{name:'Prev Cut'}).click()
- await page.getByRole('button',{name:'Next Cut'}).click()
  await expect(page.getByRole('textbox',{name:'Seek timecode'})).toHaveValue('00:00:00:01')
+ await page.getByRole('button',{name:'Next Cut'}).click()
+ await expect(page.getByRole('textbox',{name:'Seek timecode'})).toHaveValue('00:00:03:00')
 })
 
 test('Ripple delete closes gap on track, plain delete does not',async({page})=>{
