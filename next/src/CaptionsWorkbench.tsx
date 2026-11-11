@@ -27,7 +27,7 @@ export function CaptionsWorkbench(){
   let target=tracks.find(t=>t.kind==='elements'&&/caption/i.test(t.name)&&!t.locked&&(all[t.id]??[]).every(c=>c.startFrame+c.durationFrames<=start||c.startFrame>=start+frames))
   if(!target)target=engine.addTrack('elements',{name:'Captions'})
   try{
-   engine.addClip({type:'text',trackId:target.id,name:'Caption',startFrame:start,durationFrames:frames,content:text.trim(),...looks[style]})
+   engine.addClip({type:'text',trackId:target.id,name:'Caption',startFrame:start,durationFrames:frames,content:text.trim(),fontFamily:looks[style].fontFamily,fontSize:looks[style].fontSize,color:looks[style].color,textOutline:looks[style].textOutline,textShadow:looks[style].textShadow})
    setNotice('Caption added at playhead. Select it to edit timing, text and animation in Inspector.')
    setText('')
   }catch(e){setNotice('Caption could not be inserted: '+String(e))}
