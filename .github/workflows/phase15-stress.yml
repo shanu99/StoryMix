@@ -2,7 +2,7 @@ name: StoryMix 1080p and long-project stress tests
 on:
   push:
     branches: [feature/phase1-aac-ffmpeg-fallback]
-    paths: ['next/e2e/stress.spec.ts', '.github/workflows/phase15-stress.yml']
+    paths: ['next/src/**', 'next/e2e/stress.spec.ts', '.github/workflows/phase15-stress.yml']
   workflow_dispatch:
 permissions:
   contents: read
