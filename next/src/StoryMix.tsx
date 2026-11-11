@@ -3,6 +3,8 @@ import {parseSrt,writeSrt} from './subtitles'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { ClipProperties } from './ClipProperties'
 import { AdvancedTimelineTools } from './AdvancedTimelineTools'
+import { TrackArrangement,TimelineZoomButtons } from './TrackArrangement'
+import { VisualCanvasTools } from './VisualCanvasTools'
 import { ExportModal } from './ExportModal'
 import { btnDisabled, theme } from './theme'
 import {WorkspaceNavigation,WorkspacePanel,AudioPanelInfo,CaptionsPanelInfo,type WorkspaceSection} from './WorkspaceNavigation'
@@ -269,10 +271,11 @@ const TimelineControls = memo(function TimelineControls({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '1 1 auto' }}>
-        <AdvancedTimelineTools />
+        <div style={{display:'flex',gap:7,alignItems:'center',minWidth:0}}><TrackArrangement /><AdvancedTimelineTools /></div>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+        <TimelineZoomButtons />
         <span style={{ fontSize: 11, color: theme.textMuted }}>Zoom</span>
         <input
           type="range"
