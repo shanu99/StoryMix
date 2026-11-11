@@ -10,6 +10,8 @@ async function save(page:Page){
  await page.getByRole('button',{name:'Save project'}).click()
  return (await event).path()
 }
+test.describe('resource-heavy stress gates',()=>{
+ test.skip(!process.env.STORYMIX_STRESS,'Run only in the dedicated 1080p / long-video stress workflow')
 test('1080p H264/AAC real 3-second video export passes ffprobe resolution/codec gate',async({page})=>{
  test.setTimeout(300000)
  await page.goto('/')
@@ -57,4 +59,6 @@ test('five-minute video: import, seek, save, reload and relink without crashes',
  await seek.fill('00:04:30:00');await seek.press('Enter')
  await expect(seek).toHaveValue('00:04:30:00')
  expect(errors).toEqual([])
+})
+
 })
