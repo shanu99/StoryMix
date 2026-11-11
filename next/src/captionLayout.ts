@@ -59,17 +59,17 @@ export function captionScriptIssue(text:string):string|null{
  if(/[\u0900-\u0D7F\u0E00-\u0FFF]/u.test(value))return 'Another writing system detected. Sinhala Unicode is required.'
  if(!/[\u0D80-\u0DFF]/u.test(value))return 'Sinhala characters are missing from this line.'
  if(value.length>100)return 'Caption is too long. Split into short, readable Sinhala lines.'
- const compact=value.replace(/[\\s.,!?।…‘’“”\\-–—]/gu,'')
- if(/(.)\\1{7,}/u.test(compact)||/(.{2,5})\\1{5,}/u.test(compact))return 'Repeated letters detected. This looks like an AI transcription error; correct it in Sinhala.'
+ const compact=value.replace(/[\s.,!?।…‘’“”\-–—]/gu,'')
+ if(/(.)\1{7,}/u.test(compact)||/(.{2,5})\1{5,}/u.test(compact))return 'Repeated letters detected. This looks like an AI transcription error; correct it in Sinhala.'
  if(compact.length>=18){
   const codepoints=Array.from(compact)
-  const letters=codepoints.filter(c=>/[\\u0D85-\\u0DC6]/u.test(c))
+  const letters=codepoints.filter(c=>/[\u0D85-\u0DC6]/u.test(c))
   if(letters.length>=12){
    const counts=new Map<string,number>()
    for(const c of letters)counts.set(c,(counts.get(c)??0)+1)
    if(Math.max(...counts.values())/letters.length>.70)return 'Speech recognition appears to have repeated a single Sinhala letter. Please correct it.'
   }
  }
- if(value.split(/\\s+/u).some(word=>Array.from(word).length>45))return 'An unusually long word was recognized. Review and split this caption.'
+ if(value.split(/\s+/u).some(word=>Array.from(word).length>45))return 'An unusually long word was recognized. Review and split this caption.'
  return null
 }
