@@ -1,4 +1,4 @@
-import {useCallback,useState,type DragEvent} from 'react'
+import {useCallback,useEffect,useState,type DragEvent} from 'react'
 import {ArrowDown,ArrowUp,GripVertical,Layers,Lock,LockOpen,Magnet,Plus,ZoomIn,ZoomOut} from 'lucide-react'
 import {usePlaybackStore,useTracksStore,useTimelineEngine} from '@elah/editor'
 
@@ -56,4 +56,34 @@ export function TimelineZoomButtons(){
    <button type="button" aria-label="Zoom out" title="Zoom out timeline" onClick={()=>setZoom(Math.max(.02,zoom/1.35))} style={{background:'transparent',border:0,color:'#acc7d8',cursor:'pointer'}}><ZoomOut size={16}/></button>
    <button type="button" aria-label="Zoom in" title="Zoom in timeline" onClick={()=>setZoom(Math.min(50,zoom*1.35))} style={{background:'transparent',border:0,color:'#acc7d8',cursor:'pointer'}}><ZoomIn size={16}/></button>
  </div>
+}
+
+/**
+ * HTML5 media drag-and-drop autopan. Scrolls only the timeline track viewport,
+ * never the page, so imported assets can be dropped beyond the visible window.
+ * Pointer clip dragging remains owned by Elah's gesture engine.
+ */
+export function TimelineDragAutoPan(){
+ useEffect(()=>{
+  const onDrag=(e:globalThis.DragEvent)=>{
+   const node=e.target
+   if(!(node instanceof Element))return
+   const root=node.closest('[data-elah-timeline-root]')
+   if(!root)return
+   const scroll=Array.from(root.querySelectorAll<HTMLElement>('div')).find(el=>{
+    const cs=getComputedStyle(el)
+    return (cs.overflowX==='auto'||cs.overflowX==='scroll')&&el.clientWidth>0
+   })
+   if(!scroll)return
+   const rect=scroll.getBoundingClientRect()
+   if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)return
+   const edge=52
+   const deltaX=e.clientX<rect.left+edge?-28:e.clientX>rect.right-edge?28:0
+   const deltaY=e.clientY<rect.top+edge?-18:e.clientY>rect.bottom-edge?18:0
+   if(deltaX||deltaY)scroll.scrollBy({left:deltaX,top:deltaY,behavior:'instant'})
+  }
+  document.addEventListener('dragover',onDrag,true)
+  return()=>document.removeEventListener('dragover',onDrag,true)
+ },[])
+ return null
 }
