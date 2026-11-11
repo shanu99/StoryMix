@@ -67,10 +67,12 @@ async function recognize(req:Start){
  env.allowLocalModels=false
  const gpu=req.preferGpu&&typeof navigator!=='undefined'&&'gpu' in navigator
  emit({type:'progress',stage:'Loading '+(req.model==='sinhala'?'Sinhala-tuned':'multilingual')+' Whisper model'})
- let transcriber:Awaited<ReturnType<typeof pipeline<'automatic-speech-recognition'>>>
+ type LocalPipeline=(audio:Float32Array,options:{language:string;task:string;return_timestamps:boolean})=>Promise<unknown>
+ const loadAsr=pipeline as unknown as (task:'automatic-speech-recognition',model:string,options:{device:'wasm'|'webgpu';dtype:'q8'|'fp32';progress_callback:(event:{status?:string;file?:string;progress?:number})=>void})=>Promise<LocalPipeline>
+ let transcriber:LocalPipeline
  let chosen=choice
  try{
-  transcriber=await pipeline('automatic-speech-recognition',choice,{
+  transcriber=await loadAsr('automatic-speech-recognition',choice,{
    device:gpu?'webgpu':'wasm',
    dtype:gpu?'fp32':'q8',
    progress_callback:progress,
@@ -78,13 +80,13 @@ async function recognize(req:Start){
  }catch(gpuError){
   if(gpu){
    emit({type:'progress',stage:'GPU unavailable. Retrying CPU/WASM…'})
-   transcriber=await pipeline('automatic-speech-recognition',choice,{
+   transcriber=await loadAsr('automatic-speech-recognition',choice,{
     device:'wasm',dtype:'q8',progress_callback:progress,
    })
   }else if(req.model==='sinhala'){
    emit({type:'progress',stage:'Sinhala model unavailable. Trying multilingual Whisper…'})
    chosen=MODELS.multilingual
-   transcriber=await pipeline('automatic-speech-recognition',chosen,{
+   transcriber=await loadAsr('automatic-speech-recognition',chosen,{
     device:'wasm',dtype:'q8',progress_callback:progress,
    })
   }else throw gpuError
