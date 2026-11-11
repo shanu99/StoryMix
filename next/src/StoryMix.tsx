@@ -2,6 +2,8 @@ import {FolderOpen,Save,Upload,Subtitles,Download,ChevronDown,Undo2,Redo2,Clappe
 import {parseSrt,writeSrt} from './subtitles'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { ClipProperties } from './ClipProperties'
+import { CreativePanel } from './CreativePanels'
+import { VoiceRecorder } from './VoiceRecorder'
 import { AdvancedTimelineTools } from './AdvancedTimelineTools'
 import { TrackArrangement,TimelineZoomButtons,TimelineDragAutoPan } from './TrackArrangement'
 import { VisualCanvasTools } from './VisualCanvasTools'
