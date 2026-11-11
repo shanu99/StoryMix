@@ -10,7 +10,7 @@ test('StoryMix core editor: loads media and offers timeline, editing, project, c
  await page.getByRole('button',{name:'Effects',exact:true}).click();
  await expect(page.getByText('Select a clip on the timeline to edit effects.')).toBeVisible();
  await page.getByRole('button',{name:'Captions',exact:true}).click();
- await expect(page.getByText('SINHALA / ENGLISH CAPTIONS',{exact:true})).toBeVisible();
+ await expect(page.getByRole('region',{name:'Caption generation workspace'})).toBeVisible();
  await page.getByRole('button',{name:'Text',exact:true}).click();
  await expect(page.getByText('ELEMENTS')).toBeVisible();
  await page.getByRole('button',{name:'Media',exact:true}).click();
