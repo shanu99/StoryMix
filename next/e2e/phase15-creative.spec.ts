@@ -101,3 +101,30 @@ test('draggable visual transition creates an actual timeline transition',async({
  expect(project.transitions[0].kind).toBe('fade')
  expect(project.transitions[0].durationFrames).toBeGreaterThan(0)
 })
+
+test('local microphone voiceover is recorded and inserted on an audio track',async({page})=>{
+ test.setTimeout(85000)
+ await page.addInitScript(()=>{
+  if(!navigator.mediaDevices)return
+  Object.defineProperty(navigator.mediaDevices,'getUserMedia',{configurable:true,value:async()=>{
+   const context=new AudioContext()
+   const output=context.createMediaStreamDestination()
+   const osc=context.createOscillator()
+   osc.frequency.value=440
+   osc.connect(output);osc.start()
+   return output.stream
+  }})
+ })
+ await page.goto('/')
+ await page.getByRole('button',{name:'Record',exact:true}).click()
+ await page.getByRole('button',{name:'Start voiceover recording'}).click()
+ await expect(page.getByRole('button',{name:'Stop recording'})).toBeVisible({timeout:25000})
+ await page.waitForTimeout(1050)
+ await page.getByRole('button',{name:'Stop recording'}).click()
+ await expect(page.getByRole('status')).toContainText('Voiceover inserted at playhead',{timeout:35000})
+ await expect(page.locator('[data-clip-type="audio"]')).toHaveCount(1)
+ const p=await save(page)
+ const clip=all(p).find(c=>c.type==='audio')
+ expect(clip?.name).toMatch(/StoryMix-voiceover/)
+ expect(clip.durationFrames).toBeGreaterThan(0)
+})
