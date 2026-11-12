@@ -19,11 +19,11 @@ async function save(page:Page){
 test('Gemini default requires an API key, never stores it, and keeps Whisper optional',async({page})=>{
  await importAudio(page)
  const panel=page.getByRole('region',{name:'Sinhala AI Auto Captions'})
- await expect(panel.getByRole('textbox',{name:'Gemini API key'})).toBeVisible()
+ await expect(panel.getByLabel('Gemini API key')).toBeVisible()
  await expect(panel.getByRole('button',{name:'Generate Sinhala AI captions'})).toBeVisible()
  await panel.getByRole('button',{name:'Generate Sinhala AI captions'}).click()
  await expect(panel.getByRole('alert')).toContainText('Google AI Studio API key')
- await panel.getByRole('textbox',{name:'Gemini API key'}).fill(MOCK_KEY)
+ await panel.getByLabel('Gemini API key').fill(MOCK_KEY)
  const stored=await page.evaluate(()=>{
   return Object.keys(localStorage).concat(Object.keys(sessionStorage)).some(k=>/gemini|api.key/i.test(k))
  })
@@ -54,7 +54,7 @@ test('Gemini audio gateway: real 16 kHz WAV chunks, timed mixed-language caption
   })})
  })
  await importAudio(page)
- await page.getByRole('textbox',{name:'Gemini API key'}).fill(MOCK_KEY)
+ await page.getByLabel('Gemini API key').fill(MOCK_KEY)
  await page.getByRole('button',{name:'Generate Sinhala AI captions'}).click()
  const inspector=page.getByRole('region',{name:'Caption editor inspector'})
  await expect(inspector.getByRole('textbox',{name:'Caption 1 text'})).toHaveValue('ආයුබෝවන් සියලු දෙනාටම',{timeout:40000})
@@ -73,7 +73,7 @@ test('Gemini 429/quota response shows a useful error and never adds fake caption
  await page.route('**/api/transcribe',async route=>route.fulfill({status:429,contentType:'application/json',
   body:JSON.stringify({error:'Gemini Free Tier rate limit reached. Retry later.'})}))
  await importAudio(page)
- await page.getByRole('textbox',{name:'Gemini API key'}).fill(MOCK_KEY)
+ await page.getByLabel('Gemini API key').fill(MOCK_KEY)
  await page.getByRole('button',{name:'Generate Sinhala AI captions'}).click()
  await expect(page.getByRole('region',{name:'Sinhala AI Auto Captions'}).getByRole('alert'))
   .toContainText('Free Tier rate limit',{timeout:40000})
