@@ -109,7 +109,7 @@ test('Gemini audio gateway: real 16 kHz WAV chunks, timed mixed-language caption
   expect(bytes.length).toBeGreaterThan(10000)
   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
    model:'gemini-3.5-flash-lite',segments:[
-    {start:.2,end:1.05,text:'ආයුබෝවන් සියලු දෙනාටම'},
+    {start:.2,end:1.05,text:'මම video එක edit කරනවා'},
     {start:1.12,end:1.75,text:'Welcome back'},
    ],
   })})
@@ -123,14 +123,14 @@ test('Gemini audio gateway: real 16 kHz WAV chunks, timed mixed-language caption
  await expect(page.getByLabel('API key saved status')).toContainText('Saved')
  await page.getByRole('button',{name:'Generate Sinhala AI captions'}).click()
  const inspector=page.getByRole('region',{name:'Caption editor inspector'})
- await expect(inspector.getByRole('textbox',{name:'Caption 1 text'})).toHaveValue('ආයුබෝවන් සියලු දෙනාටම',{timeout:40000})
+ await expect(inspector.getByRole('textbox',{name:'Caption 1 text'})).toHaveValue('මම video එක edit කරනවා',{timeout:40000})
  await expect(inspector.getByRole('textbox',{name:'Caption 2 text'})).toHaveValue('Welcome back')
  await expect(inspector.getByRole('button',{name:'Insert generated captions into timeline'})).toBeEnabled()
  await inspector.getByRole('button',{name:'Insert generated captions into timeline'}).click()
  const p=await save(page)
  const texts=(Object.values(p.clips).flat() as any[]).filter(c=>c.type==='text')
  expect(texts).toHaveLength(2)
- expect(texts.some(t=>t.content.includes('ආයුබෝවන්'))).toBeTruthy()
+ expect(texts.some(t=>t.content.includes('මම video එක edit කරනවා'))).toBeTruthy()
  expect(texts.some(t=>t.content.includes('Welcome back'))).toBeTruthy()
  expect(requests).toBeGreaterThanOrEqual(1)
 })
