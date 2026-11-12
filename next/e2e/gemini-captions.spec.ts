@@ -108,7 +108,7 @@ test('Gemini audio gateway: real 16 kHz WAV chunks, timed mixed-language caption
   expect(bytes.subarray(8,12).toString()).toBe('WAVE')
   expect(bytes.length).toBeGreaterThan(10000)
   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
-   model:'gemini-2.5-flash',segments:[
+   model:'gemini-3.5-flash-lite',segments:[
     {start:.2,end:1.05,text:'ආයුබෝවන් සියලු දෙනාටම'},
     {start:1.12,end:1.75,text:'Welcome back'},
    ],
