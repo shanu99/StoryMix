@@ -2,7 +2,7 @@ import {useState,type CSSProperties} from 'react'
 import {Check,Download,ChevronDown,Plus,Paintbrush,AlertCircle} from 'lucide-react'
 import {useTimelineEngine,useTracksStore,useSelectionStore,usePlaybackStore,useMediaLibraryStore,type Clip} from '@elah/editor'
 import {TextClipProperties} from './TextClipProperties'
-import {captionPresentation,wrapCaption,splitCaptionForDisplay,captionScriptIssue} from './captionLayout'
+import {captionPresentation,wrapCaption,splitCaptionForDisplay,captionQualityIssue} from './captionLayout'
 import {sourceSecondsToTimelineFrame} from './sinhalaAsr'
 import {useCaptionWorkspace} from './CaptionWorkspaceState'
 import {writeSrt} from './subtitles'
@@ -46,7 +46,7 @@ export function CaptionEditorInspector(){
  const assets=useMediaLibraryStore(s=>s.assets)
  const selectedIds=useSelectionStore(s=>s.selectedClipIds)
  const currentFrame=usePlaybackStore(s=>s.currentFrame)
- const {draft,setDraft,reviewReady,setReviewReady,sourceClipId,feedback,setFeedback}=useCaptionWorkspace()
+ const {draft,setDraft,reviewReady,setReviewReady,sourceClipId,feedback,setFeedback,languageMode}=useCaptionWorkspace()
  const [timings,setTimings]=useState(false)
  const [manual,setManual]=useState(false)
  const [text,setText]=useState('')
@@ -56,7 +56,7 @@ export function CaptionEditorInspector(){
  const selectedText=Object.values(clips).flat().find(c=>selectedIds.has(c.id)&&c.type==='text')
  const captionClips=tracks.filter(t=>t.kind==='elements'&&/caption/i.test(t.name)).flatMap(t=>clips[t.id]??[]).filter(c=>c.type==='text')
  const edit=(index:number,patch:{text?:string;start?:number;end?:number})=>setDraft(rows=>rows.map((r,i)=>i===index?{...r,...patch}:r))
- const issues=draft.map(r=>captionScriptIssue(r.text))
+ const issues=draft.map(r=>captionQualityIssue(r.text,languageMode))
  const valid=draft.length>0&&issues.every(issue=>!issue)&&draft.every(r=>r.end>r.start)
  const source=engine.findClip(sourceClipId)?.clip
  const primaryVideo=Object.values(clips).flat().find(c=>c.type==='video')
