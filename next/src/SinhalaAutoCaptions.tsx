@@ -1,4 +1,5 @@
 import {useEffect,useMemo,useRef,useState,type CSSProperties} from 'react'
+import {createPortal} from 'react-dom'
 import {AudioLines,Square,AlertTriangle,ChevronDown,CheckCircle2,Pencil,Trash2,Save,ArrowRight,KeyRound,Video,LoaderCircle,Eye,EyeOff,X,ExternalLink} from 'lucide-react'
 import {loadGeminiApiKey,saveGeminiApiKey,removeGeminiApiKey,validGeminiApiKey} from './geminiKeyVault'
 import {useSelectionStore,useTracksStore} from '@elah/editor'
@@ -290,7 +291,7 @@ export function SinhalaAutoCaptions(){
     <span style={{...subtle,color:'#bde6d6'}}>Review and add them from the Inspector on the right →</span>
    </div>}
   {state==='review'&&!results.length&&<span role="status" style={subtle}>{stage}</span>}
-  {engineMode==='gemini'&&connectOpen&&
+  {engineMode==='gemini'&&connectOpen&&createPortal(
    <div role="presentation" style={{position:'fixed',inset:0,background:'rgba(4,10,19,.78)',display:'flex',justifyContent:'center',alignItems:'center',zIndex:9999,padding:18}}>
     <div role="dialog" aria-modal="true" aria-label="Connect Google AI" style={{width:'100%',maxWidth:475,maxHeight:'calc(100vh - 36px)',overflowY:'auto',border:'1px solid #3f586c',borderRadius:18,background:'#142230',boxShadow:'0 20px 70px rgba(0,0,0,.5)',padding:24,display:'grid',gap:16,color:'#f0f7ff'}}>
      <div style={{display:'flex',justifyContent:'flex-end'}}>
@@ -337,7 +338,7 @@ export function SinhalaAutoCaptions(){
        </div>}
      <div style={{...subtle,fontSize:10,textAlign:'center'}}>Encrypted storage in this browser only. Google validates the key when you generate. Do not save on a shared device.</div>
     </div>
-   </div>}
+   </div>,document.body)}
   <details style={{borderTop:'1px solid #304758',paddingTop:9}}>
    <summary style={{fontSize:11,color:'#9fbfd1',cursor:'pointer',listStyle:'none'}}>
     <ChevronDown size={13} style={{verticalAlign:'middle'}}/> Advanced settings
