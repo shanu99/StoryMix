@@ -52,18 +52,27 @@ export default {
   // Client sends 16-bit 16000-Hz mono PCM, which is exactly 32000 bytes/s.
   // Actual RIFF data chunk can have additional metadata, so clamp conservatively.
   const duration=Math.min(LIMIT_SECONDS,Math.max(.1,(data.byteLength-44)/32000))
+  // Code-mixed Sri Lankan speech needs explicit orthography rules: a Latin
+  // transcript can be plausible acoustically but is not a usable Sinhala caption.
   const instructions=[
-   'You are a careful speech-to-text transcriber, NOT a translator or storyteller.',
-   'Transcribe ONLY audible spoken words from the attached Sinhala audio excerpt.',
-   'Output the original spoken language in its NATIVE Unicode writing system.',
-   'If Sinhala is spoken, use real Sinhala Unicode letters (සිංහල), never Singlish transliteration.',
-   'If English is spoken, write real English, not a Sinhala translation.',
-   'For code-switching, preserve the actual language for each word.',
-   'Do not invent missing speech, repeated syllables, background dialogue or filler.',
-   'Return accurately timed short phrase captions; start/end must be in seconds relative to this excerpt.',
-   'Keep each phrase easy to read: typically 2-6 seconds. Only output speech actually heard.',
-   'For silence or instrumental music return {"segments":[]}.',
-   'Return JSON only: {"segments":[{"start":0.3,"end":2.1,"text":"..."}]}.',
+   'Task: faithfully transcribe the speech in this short Sri Lankan audio excerpt into timestamped captions.',
+   'Speakers may switch freely between spoken Sinhala and spoken English, even inside one sentence.',
+   'Detect the language of EACH spoken word from its pronunciation and grammatical context.',
+   'Write EVERY SINHALA word in natural Sinhala Unicode script (U+0D80–U+0DFF). NEVER romanize Sinhala as Singlish.',
+   'Write genuinely spoken ENGLISH words, technology terms, and English names in correct English Latin spelling.',
+   'Do not translate Sinhala into English or English into Sinhala. Do not turn correctly spoken English into phonetic Sinhala.',
+   'A single caption may legitimately mix both scripts: මෙතන video එක edit කරන්න.',
+   'EXAMPLES OF SPELLING ONLY, NOT AUDIO CONTENT:',
+   'Spoken Sinhala mama, oyata, karanna, kiyala, thiyenawa, kohomada, hari, balanna must be written මම, ඔයාට, කරන්න, කියලා, තියෙනවා, කොහොමද, හරි, බලන්න.',
+   'For spoken Sinhala-English mix “mama video eka edit karanawa”, write “මම video එක edit කරනවා”, NOT “mama video eka edit karanawa”.',
+   'For “oya English subtitle eka add karanna”, write “ඔයා English subtitle එක add කරන්න”.',
+   'Do NOT blindly change the Latin word “API” to Sinhala: when the speaker says the English technical acronym, keep API.',
+   'Preserve the exact audible words and meaning, including repetition or grammatical irregularities. Never invent speech.',
+   'Ignore background music, silence and sound effects. If no speech is heard, return {"segments":[]}.',
+   'Use start/end timestamps in SECONDS relative to this audio excerpt. Captions should usually cover 2–6 seconds.',
+   'Review each caption before responding. If a Latin token is actually a Sinhala word written as Singlish, correct that token to Sinhala Unicode.',
+   'If a token is actually spoken English, retain correct English spelling. Do not overwrite valid English with Sinhala.',
+   'Return ONLY a valid JSON object with a segments array: {"segments":[{"start":0.3,"end":2.1,"text":"මම video එක edit කරනවා"}]}.',
   ].join(' ')
   const modelRequest={
    contents:[{role:'user',parts:[
