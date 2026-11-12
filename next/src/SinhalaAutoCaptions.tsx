@@ -1,5 +1,5 @@
 import {useEffect,useMemo,useRef,useState,type CSSProperties} from 'react'
-import {AudioLines,Square,AlertTriangle,ChevronDown,CheckCircle2,Pencil,Trash2,Save,ArrowRight,KeyRound,Video,LoaderCircle} from 'lucide-react'
+import {AudioLines,Square,AlertTriangle,ChevronDown,CheckCircle2,Pencil,Trash2,Save,ArrowRight,KeyRound,Video,LoaderCircle,Eye,EyeOff,X,ExternalLink} from 'lucide-react'
 import {loadGeminiApiKey,saveGeminiApiKey,removeGeminiApiKey,validGeminiApiKey} from './geminiKeyVault'
 import {useSelectionStore,useTracksStore} from '@elah/editor'
 import {decodeClipForAsr} from './audioForSinhalaAsr'
@@ -52,6 +52,9 @@ export function SinhalaAutoCaptions(){
  const [keyStatus,setKeyStatus]=useState<'loading'|'empty'|'saved'|'editing'|'error'>('loading')
  const [keyError,setKeyError]=useState('')
  const [savingKey,setSavingKey]=useState(false)
+ const [connectOpen,setConnectOpen]=useState(false)
+ const [revealKey,setRevealKey]=useState(false)
+ const [connectionNotice,setConnectionNotice]=useState('')
  useEffect(()=>{
   let active=true
   void loadGeminiApiKey().then(value=>{
@@ -75,6 +78,9 @@ export function SinhalaAutoCaptions(){
    if(verified!==geminiKey.trim())throw Error('Could not confirm saved key. Please try saving again.')
    setGeminiKey(verified)
    setKeyStatus('saved')
+   setConnectOpen(false)
+   setRevealKey(false)
+   setConnectionNotice('Your Google AI key was saved successfully on this device.')
   }catch(e){
    setKeyError(e instanceof Error?e.message:'Could not save API key.')
   }finally{setSavingKey(false)}
@@ -85,6 +91,7 @@ export function SinhalaAutoCaptions(){
    await removeGeminiApiKey()
    setGeminiKey('')
    setKeyStatus('empty')
+   setConnectionNotice('Saved key removed from this device.')
   }catch(e){setKeyError(e instanceof Error?e.message:'Could not remove saved key.')}
   finally{setSavingKey(false)}
  }
@@ -166,8 +173,8 @@ export function SinhalaAutoCaptions(){
  const runGemini=async()=>{
   if(!clip||running.current)return
   if(!geminiKey.trim()||keyStatus!=='saved'){
-   setError('Enter your free Google AI Studio API key to use Gemini captions.')
-   setState('error')
+   setConnectOpen(true)
+   setKeyError('')
    return
   }
   if(clip.type==='video'&&clip.embeddedAudio===false){
@@ -217,103 +224,120 @@ export function SinhalaAutoCaptions(){
  const run=()=>{void (engineMode==='gemini'?runGemini():runWhisper())}
  const processing=state==='decoding'||state==='loading'||state==='transcribing'
  const keyReady=keyStatus==='saved'&&validGeminiApiKey(geminiKey)
- const ready=!!clip&&(engineMode==='whisper'||keyReady)
- const disabledReason=!clip?'Import a video or audio file to begin.':
-  engineMode==='gemini'&&!keyReady?(keyStatus==='loading'?'Checking saved API key…':'Save your Gemini API key to continue.'):''
- const stepLabel:CSSProperties={fontSize:11,fontWeight:700,color:'#b3d5e8',letterSpacing:'.025em'}
- const setupCard:CSSProperties={border:'1px solid #344f66',borderRadius:11,background:'#13283a',padding:12,display:'grid',gap:9}
- return <section aria-label="Sinhala AI Auto Captions" style={{display:'grid',gap:12}}>
-  <div style={{display:'grid',gap:5}}>
-   <strong style={{fontSize:16,color:'#f0faff'}}>Auto Captions</strong>
-   <span style={{...info,fontSize:11}}>Video එක තෝරන්න → Generate කරන්න → දකුණු පැත්තෙන් edit කරන්න.</span>
+ const hasSource=!!clip
+ const active=state==='decoding'||state==='loading'||state==='transcribing'
+ const connectionButton=()=>{
+  setKeyError('')
+  setConnectionNotice('')
+  setConnectOpen(true)
+ }
+ const disconnect=async()=>{
+  await forgetKey()
+  setConnectOpen(false)
+ }
+ const buttonPrimary:CSSProperties={...btn,borderColor:'#1e9fd3',background:'#0c719c',padding:'13px 12px',fontSize:13,fontWeight:700,display:'flex',gap:9,justifyContent:'center',alignItems:'center',width:'100%'}
+ const subtle:CSSProperties={fontSize:11,color:'#91b2c7',lineHeight:1.55}
+ return <section aria-label="Sinhala AI Auto Captions" style={{display:'grid',gap:13}}>
+  <div style={{display:'grid',gap:4}}>
+   <strong style={{fontSize:15,color:'#f3faff'}}>Auto Captions</strong>
+   <span style={subtle}>One click to generate. Edit captions in the right Inspector.</span>
   </div>
-  <div style={setupCard}>
-   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6}}>
-    <span style={stepLabel}>1. VIDEO / AUDIO</span>
-    {clip&&<span aria-label="Video ready" style={{display:'flex',gap:4,alignItems:'center',fontSize:10,color:'#98e7ce'}}><CheckCircle2 size={13}/> Ready</span>}
-   </div>
-   {!sources.length
-    ?<div role="status" style={{...info,padding:'10px 8px',border:'1px dashed #54718a',borderRadius:8}}>
-       <Video size={15} style={{verticalAlign:'middle',marginRight:8}}/>Import a video or audio file first.
-     </div>
-    :sources.length===1
-     ?<div aria-label="Selected caption source" style={{...info,display:'flex',gap:9,alignItems:'center',minWidth:0}}>
-       <Video size={16} color="#77cdea"/><span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}} title={clip?.name}>{clip?.name}</span>
-      </div>
-     :<select aria-label="Auto captions media source" style={input} value={activeId} disabled={processing} onChange={e=>setSourceId(e.target.value)}>
-       {sources.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
-      </select>}
-  </div>
-  {engineMode==='gemini'&&<div style={setupCard}>
-   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:7}}>
-    <span style={stepLabel}>2. GEMINI AI</span>
-    {keyReady&&<span aria-label="API key saved status" role="status" style={{fontSize:10,fontWeight:700,color:'#99f0cc',display:'flex',alignItems:'center',gap:5}}>
-      <CheckCircle2 size={15}/> KEY SAVED
-     </span>}
-   </div>
-   {keyStatus==='loading'&&<div role="status" style={{...info,display:'flex',gap:6,alignItems:'center'}}><LoaderCircle size={15}/> Checking saved key…</div>}
-   {keyStatus==='saved'&&
-    <div aria-label="Saved Gemini API key" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6,padding:'9px 10px',borderRadius:9,background:'#0c302d',border:'1px solid #2d7162'}}>
-     <div style={{minWidth:0,display:'grid',gap:2}}>
-      <strong style={{fontSize:12,color:'#b4f7db'}}>Gemini is ready</strong>
-      <span style={{fontSize:10,color:'#9bc8bb'}}>Saved on this device · •••• {geminiKey.slice(-4)}</span>
-     </div>
-     <button type="button" aria-label="Edit saved Gemini API key" disabled={processing} onClick={()=>{setKeyError('');setKeyStatus('editing')}}
-      style={{...btn,padding:'7px 9px',display:'flex',gap:5,alignItems:'center',background:'#174940',fontSize:11}}><Pencil size={13}/> Edit</button>
-    </div>}
-   {keyStatus!=='saved'&&keyStatus!=='loading'&&
-    <div style={{display:'grid',gap:9}}>
-     <span style={{...info,fontSize:11}}>{keyStatus==='editing'?'Change your saved key below.':'Paste your Google AI Studio key once. StoryMix will remember it.'}</span>
-     <input type="password" autoComplete="off" spellCheck={false} aria-label="Gemini API key" placeholder="Paste your Gemini API key"
-      value={geminiKey} disabled={processing||savingKey} onChange={e=>{setGeminiKey(e.target.value);setKeyError('')}} style={input}/>
-     <button type="button" aria-label="Save Gemini API key" onClick={()=>void saveKey()}
-      disabled={processing||savingKey||!validGeminiApiKey(geminiKey)}
-      style={{...btn,display:'flex',alignItems:'center',justifyContent:'center',gap:8,background:'#14698e',opacity:validGeminiApiKey(geminiKey)?1:.6}}>
-      <Save size={15}/>{savingKey?'Saving…':'Save API Key'}
-     </button>
-     {keyStatus==='editing'&&<button type="button" aria-label="Cancel editing Gemini API key"
-      onClick={()=>{void loadGeminiApiKey().then(value=>{if(value){setGeminiKey(value);setKeyStatus('saved')}else{setGeminiKey('');setKeyStatus('empty')}}).catch(e=>{setKeyError(String(e));setKeyStatus('error')})}}
-      style={{...btn,padding:6,fontSize:11}}>Cancel changes</button>}
-     {keyStatus==='error'&&<button type="button" aria-label="Clear unusable Gemini key" style={btn} onClick={()=>void forgetKey()}>Clear unusable key</button>}
-     <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:'#8cdbff'}}>Get a free-tier Gemini API key</a>
-    </div>}
-   {keyStatus==='saved'&&<details style={{fontSize:10,color:'#a4bdc9'}}>
-    <summary style={{cursor:'pointer'}} aria-label="API key management">Manage API key</summary>
-    <div style={{display:'grid',gap:6,paddingTop:8}}>
-     <span>Stored in encrypted browser storage. Removing it won't affect the saved project.</span>
-     <button type="button" aria-label="Remove saved Gemini API key" onClick={()=>void forgetKey()} disabled={processing||savingKey}
-      style={{...btn,padding:7,fontSize:11,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
-      <Trash2 size={13}/> Remove saved key</button>
+  {!sources.length
+   ?<div role="status" style={{padding:12,border:'1px dashed #54748a',borderRadius:9,display:'flex',gap:8,alignItems:'center',fontSize:11,color:'#b8d0dc'}}>
+     <Video size={16}/> Import a video or audio file first
     </div>
-   </details>}
-   {keyError&&<div role="alert" style={{...info,color:'#ffb7ae'}}>{keyError}</div>}
-   <span style={{...info,fontSize:10}}>Key saved ≠ Google quota verified. Audio is sent to Google when generating; free-tier limits apply. Don't save keys on a shared device.</span>
-  </div>}
-  <div style={{display:'grid',gap:8}}>
-   <span style={stepLabel}>{engineMode==='gemini'?'3. GENERATE CAPTIONS':'2. GENERATE CAPTIONS'}</span>
-   <button type="button" aria-label="Generate Sinhala AI captions" onClick={run} disabled={processing||!ready}
-    style={{...btn,padding:'14px 10px',fontSize:13,fontWeight:700,display:'flex',justifyContent:'center',gap:9,alignItems:'center',
-     borderColor:ready?'#1992bb':'#37566c',background:ready?'#075d82':'#284354',opacity:processing?.65:1}}>
-    <AudioLines size={18}/> Generate Captions <ArrowRight size={15}/>
-   </button>
-   {!processing&&disabledReason&&<span aria-label="Caption setup needed" style={{...info,fontSize:11,color:'#e1c58d'}}>{disabledReason}</span>}
-   {ready&&!processing&&state!=='review'&&<span style={{...info,fontSize:10}}>One click · Original spoken language · Auto timing and video ratio</span>}
-  </div>
-  {processing&&<div role="status" style={{...setupCard,gap:8}}>
-   <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#d8f2ff'}}>
-    <strong>Generating captions…</strong><span>{progress!==null?progress+'%':'Preparing'}</span>
-   </div>
-   <div style={{height:6,background:'#254054',borderRadius:9,overflow:'hidden'}}><div style={{height:'100%',width:(progress??5)+'%',background:'#16b9f5',transition:'width .3s'}}/></div>
-   <span style={info}>{stage}</span>
-   <button type="button" aria-label="Cancel Sinhala transcription" onClick={stop} style={{...btn,padding:8,display:'flex',justifyContent:'center',alignItems:'center',gap:6}}>
-    <Square size={13}/> Cancel</button>
-  </div>}
-  {state==='error'&&<div role="alert" style={{...info,color:'#ffc4ba',padding:10,border:'1px solid #8b5757',borderRadius:8}}><AlertTriangle size={14} style={{verticalAlign:'middle',marginRight:5}}/>{error}</div>}
-  {reviewReady&&results.length>0&&<div role="status" style={{...setupCard,background:'#11352e',borderColor:'#327a65',gap:6}}>
-   <strong style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'#b2f6d4'}}><CheckCircle2 size={17}/> {results.length} captions generated</strong>
-   <span style={{...info,color:'#c4e8dd'}}>Next: Review and Add to Timeline in the right Inspector →</span>
-  </div>}
-  {state==='review'&&!results.length&&<div role="status" style={info}>{stage}</div>}
+   :sources.length===1
+    ?<div aria-label="Selected caption source" style={{padding:'11px 12px',background:'#162a3a',border:'1px solid #304a5d',borderRadius:9,display:'flex',alignItems:'center',gap:8,minWidth:0}}>
+      <Video size={16} color="#6ed5fa"/><span style={{flex:1,minWidth:0,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',fontSize:11,color:'#dbf1fc'}} title={clip?.name}>{clip?.name}</span>
+      <CheckCircle2 size={15} color="#83e8bb"/>
+     </div>
+    :<select aria-label="Auto captions media source" style={input} value={activeId} disabled={active} onChange={e=>setSourceId(e.target.value)}>
+      {sources.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+     </select>}
+  {engineMode==='gemini'&&
+   <div aria-label="Google AI connection status" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:7,padding:'10px 11px',background:'#112737',border:'1px solid #365269',borderRadius:9}}>
+    <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>
+     <box aria-hidden="true" style={{display:'flex',alignItems:'center'}}><KeyRound size={17} color={keyReady?'#86e5ba':'#8bb7d0'}/></box>
+     <div style={{display:'grid',gap:2,minWidth:0}}>
+      <strong style={{fontSize:11,color:'#e6f5ff'}}>Google AI</strong>
+      {keyStatus==='loading'?<span style={{fontSize:10,color:'#b7c8d3'}}>Checking saved key…</span>:
+       keyReady?<span aria-label="API key saved status" role="status" style={{fontSize:10,color:'#8af2c4'}}>✓ Key saved · ••••{geminiKey.slice(-4)}</span>:
+       <span style={{fontSize:10,color:'#e4bb8d'}}>Not connected</span>}
+     </div>
+    </div>
+    <button type="button" aria-label={keyReady?'Manage saved Gemini API key':'Connect Google AI'}
+     onClick={connectionButton} disabled={active||savingKey||keyStatus==='loading'}
+     style={{...btn,padding:'7px 9px',fontSize:11,whiteSpace:'nowrap',background:keyReady?'#1a3548':'#175d7f'}}>
+     {keyReady?'Manage':'Connect'}
+    </button>
+   </div>}
+  {connectionNotice&&<output role="status" style={{...subtle,color:'#a0efd0'}}>{connectionNotice}</output>}
+  <button type="button" aria-label="Generate Sinhala AI captions" onClick={keyReady||engineMode==='whisper'?run:connectionButton}
+   disabled={active||!hasSource||keyStatus==='loading'}
+   style={{...buttonPrimary,opacity:active||!hasSource?.55:1}}>
+   <AudioLines size={18}/> Generate Captions <ArrowRight size={15}/>
+  </button>
+  {engineMode==='gemini'&&!keyReady&&keyStatus!=='loading'&&<span style={{...subtle,color:'#dec5a0',textAlign:'center'}}>Connect Google AI once to enable captions.</span>}
+  {active&&<div role="status" style={{padding:11,background:'#162c3e',border:'1px solid #345168',borderRadius:9,display:'grid',gap:9}}>
+    <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#d8eefa'}}><strong>Generating captions</strong><span>{progress===null?'Preparing…':progress+'%'}</span></div>
+    <div style={{height:5,background:'#2a4559',borderRadius:8,overflow:'hidden'}}><div style={{width:(progress??5)+'%',height:'100%',background:'#16b9f5',transition:'width .2s'}}/></div>
+    <span style={subtle}>{stage}</span>
+    <button type="button" aria-label="Cancel Sinhala transcription" style={{...btn,padding:8}} onClick={stop}><Square size={12} style={{verticalAlign:'middle'}}/> Cancel</button>
+   </div>}
+  {state==='error'&&<div role="alert" style={{...subtle,color:'#ffb4aa',border:'1px solid #a35b55',padding:10,borderRadius:8}}><AlertTriangle size={14} style={{verticalAlign:'middle'}}/> {error}</div>}
+  {reviewReady&&results.length>0&&<div role="status" style={{padding:11,background:'#14352e',border:'1px solid #377a65',borderRadius:9,display:'grid',gap:5}}>
+    <strong style={{fontSize:12,color:'#aff1cf'}}><CheckCircle2 size={15} style={{verticalAlign:'middle'}}/> {results.length} captions ready</strong>
+    <span style={{...subtle,color:'#bde6d6'}}>Review and add them from the Inspector on the right →</span>
+   </div>}
+  {state==='review'&&!results.length&&<span role="status" style={subtle}>{stage}</span>}
+  {engineMode==='gemini'&&connectOpen&&
+   <div role="presentation" style={{position:'fixed',inset:0,background:'rgba(4,10,19,.78)',display:'flex',justifyContent:'center',alignItems:'center',zIndex:9999,padding:18}}>
+    <div role="dialog" aria-modal="true" aria-label="Connect Google AI" style={{width:'100%',maxWidth:475,maxHeight:'calc(100vh - 36px)',overflowY:'auto',border:'1px solid #3f586c',borderRadius:18,background:'#142230',boxShadow:'0 20px 70px rgba(0,0,0,.5)',padding:24,display:'grid',gap:16,color:'#f0f7ff'}}>
+     <div style={{display:'flex',justifyContent:'flex-end'}}>
+      <button type="button" aria-label="Close Google AI setup" onClick={()=>{setConnectOpen(false);setRevealKey(false);setKeyError('');if(keyStatus==='editing'){void loadGeminiApiKey().then(v=>{if(v){setGeminiKey(v);setKeyStatus('saved')}else{setGeminiKey('');setKeyStatus('empty')}})}}} style={{...btn,border:'none',background:'transparent',padding:4}}><X size={19}/></button>
+     </div>
+     <div style={{display:'grid',gap:8,textAlign:'center'}}>
+      <div style={{display:'flex',justifyContent:'center',alignItems:'center',gap:12}}>
+       <div style={{borderRadius:11,background:'#0c5d87',padding:12}}><KeyRound size={22}/></div>
+       <ArrowRight size={18} color="#7ea3bb"/>
+       <div style={{borderRadius:11,background:'#23345a',padding:12}}><AudioLines size={22} color="#bdabff"/></div>
+      </div>
+      <strong style={{fontSize:23,fontWeight:750}}>{keyReady?'Google AI is connected':'Connect your Google AI key'}</strong>
+      <span style={{fontSize:12,color:'#a6c0d0'}}>Free-tier keys supported. Save it once on this device.</span>
+     </div>
+     {keyReady
+      ?<div aria-label="Saved Gemini API key" style={{padding:'14px 15px',background:'#113d35',border:'1px solid #367b64',borderRadius:10,display:'grid',gap:8}}>
+        <strong style={{display:'flex',gap:8,alignItems:'center',color:'#b6f5d5',fontSize:13}}><CheckCircle2 size={18}/> API key saved on this device</strong>
+        <span style={{fontSize:12,color:'#c1d2dc'}}>••••••••{geminiKey.slice(-4)}</span>
+        <div style={{display:'flex',gap:8}}>
+         <button type="button" aria-label="Edit saved Gemini API key" style={{...btn,flex:1}} onClick={()=>{setKeyStatus('editing');setKeyError('')}}><Pencil size={13} style={{verticalAlign:'middle'}}/> Change key</button>
+         <button type="button" aria-label="Remove saved Gemini API key" style={btn} onClick={()=>void disconnect()} disabled={savingKey}><Trash2 size={13} style={{verticalAlign:'middle'}}/> Remove</button>
+        </div>
+       </div>
+      :<div style={{display:'grid',gap:11}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+         <input type={revealKey?'text':'password'} autoComplete="off" spellCheck={false} aria-label="Gemini API key"
+          placeholder="Paste your Google AI key" style={{...input,flex:1,padding:12,fontSize:12}}
+          value={geminiKey} disabled={savingKey} onChange={e=>{setGeminiKey(e.target.value);setKeyError('')}}/>
+         <button type="button" aria-label={revealKey?'Hide API key':'Show API key'} onClick={()=>setRevealKey(v=>!v)}
+          style={{...btn,padding:10}}>{revealKey?<EyeOff size={17}/>:<Eye size={17}/>}</button>
+        </div>
+        {keyError&&<div role="alert" style={{...subtle,color:'#ffb4aa'}}>{keyError}</div>}
+        <button type="button" aria-label="Save Gemini API key" onClick={()=>void saveKey()} disabled={savingKey||!validGeminiApiKey(geminiKey)}
+         style={{...buttonPrimary,opacity:savingKey||!validGeminiApiKey(geminiKey)?.55:1}}><Save size={16}/> {savingKey?'Saving…':'Connect & Save'}</button>
+        <div style={{paddingTop:8,borderTop:'1px solid #364b5b',display:'grid',gap:8}}>
+         <span style={{fontSize:12,fontWeight:650}}>No API key yet?</span>
+         <span style={subtle}>1. Open Google AI Studio and sign in</span>
+         <span style={subtle}>2. Create an API key and copy it</span>
+         <span style={subtle}>3. Paste it above, then press Connect & Save</span>
+         <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style={{...buttonPrimary,textDecoration:'none',fontSize:12,padding:10}}>
+          Open Google AI Studio <ExternalLink size={15}/>
+         </a>
+        </div>
+       </div>}
+     <div style={{...subtle,fontSize:10,textAlign:'center'}}>Encrypted storage in this browser only. Google validates the key when you generate. Do not save on a shared device.</div>
+    </div>
+   </div>}
   <details style={{borderTop:'1px solid #304758',paddingTop:9}}>
    <summary style={{fontSize:11,color:'#9fbfd1',cursor:'pointer',listStyle:'none'}}>
     <ChevronDown size={13} style={{verticalAlign:'middle'}}/> Advanced settings
