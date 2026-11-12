@@ -36,6 +36,10 @@ async function fakeTranscriber(page:Page,neverFinish=false){
   }
  },neverFinish)
 }
+async function useExperimentalWhisper(page:Page){
+ await page.getByText('Advanced settings').click()
+ await page.getByRole('combobox',{name:'Caption recognition engine'}).selectOption('whisper')
+}
 test('Sinhala ASR timestamps are sanitized and align correctly for trimmed fast playback',async({page})=>{
  await page.goto('/')
  const result=await page.evaluate(async()=>{
@@ -65,6 +69,7 @@ test('Sinhala AI captions decode real local audio and insert editable timed text
  await expect(page.getByText(/placed 1 clips/)).toBeVisible({timeout:25000})
  await page.getByRole('button',{name:'Captions',exact:true}).click()
  await expect(page.getByRole('region',{name:'Sinhala AI Auto Captions'})).toBeVisible()
+ await useExperimentalWhisper(page)
  await page.getByRole('button',{name:'Generate Sinhala AI captions'}).click()
  const inspector=page.getByRole('region',{name:'Caption editor inspector'})
  await expect(inspector).toBeVisible()
@@ -87,6 +92,7 @@ test('Sinhala auto captions support downloading timestamped SRT before insertion
  await page.locator('input[aria-label="Choose video audio or image files"]').setInputFiles(fixture('test-audio.wav'))
  await expect(page.getByText(/placed 1 clips/)).toBeVisible({timeout:25000})
  await page.getByRole('button',{name:'Captions',exact:true}).click()
+ await useExperimentalWhisper(page)
  await page.getByRole('button',{name:'Generate Sinhala AI captions'}).click()
  await expect(page.getByRole('button',{name:'Download generated Sinhala SRT'})).toBeVisible({timeout:25000})
  const ev=page.waitForEvent('download')
@@ -104,6 +110,7 @@ test('Sinhala transcription can be cancelled without inserting incomplete captio
  await page.locator('input[aria-label="Choose video audio or image files"]').setInputFiles(fixture('test-audio.wav'))
  await expect(page.getByText(/placed 1 clips/)).toBeVisible({timeout:25000})
  await page.getByRole('button',{name:'Captions',exact:true}).click()
+ await useExperimentalWhisper(page)
  await page.getByRole('button',{name:'Generate Sinhala AI captions'}).click()
  await expect(page.getByRole('button',{name:'Cancel Sinhala transcription'})).toBeVisible({timeout:20000})
  await page.getByRole('button',{name:'Cancel Sinhala transcription'}).click()
@@ -121,6 +128,7 @@ test('Sinhala-only output blocks romanized captions until manually corrected in 
  const panel=page.getByRole('region',{name:'Sinhala AI Auto Captions'})
  await expect(panel.getByRole('button',{name:'Generate Sinhala AI captions'})).toBeVisible()
  await expect(panel.getByLabel('Sinhala transcription model')).toBeHidden()
+ await useExperimentalWhisper(page)
  await page.getByRole('button',{name:'Generate Sinhala AI captions'}).click()
  const edit=page.getByRole('textbox',{name:'Caption 1 text'})
  await expect(edit).toHaveValue('ආයුබෝවන් ස්ටෝරිමික්ස්',{timeout:30000})
@@ -229,6 +237,7 @@ test('invalid previously generated caption is flagged and can be removed safely'
  await page.locator('input[aria-label="Choose video audio or image files"]').setInputFiles(fixture('test-audio.wav'))
  await expect(page.getByText(/placed 1 clips/)).toBeVisible({timeout:25000})
  await page.getByRole('button',{name:'Captions',exact:true}).click()
+ await useExperimentalWhisper(page)
  await page.getByRole('button',{name:'Generate Sinhala AI captions'}).click()
  await expect(page.getByRole('button',{name:'Insert generated captions into timeline'})).toBeEnabled({timeout:30000})
  await page.getByRole('button',{name:'Insert generated captions into timeline'}).click()
