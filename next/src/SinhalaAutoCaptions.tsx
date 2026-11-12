@@ -257,7 +257,7 @@ export function SinhalaAutoCaptions(){
   {engineMode==='gemini'&&
    <div aria-label="Google AI connection status" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:7,padding:'10px 11px',background:'#112737',border:'1px solid #365269',borderRadius:9}}>
     <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>
-     <box aria-hidden="true" style={{display:'flex',alignItems:'center'}}><KeyRound size={17} color={keyReady?'#86e5ba':'#8bb7d0'}/></box>
+     <span aria-hidden="true" style={{display:'flex',alignItems:'center'}}><KeyRound size={17} color={keyReady?'#86e5ba':'#8bb7d0'}/></span>
      <div style={{display:'grid',gap:2,minWidth:0}}>
       <strong style={{fontSize:11,color:'#e6f5ff'}}>Google AI</strong>
       {keyStatus==='loading'?<span style={{fontSize:10,color:'#b7c8d3'}}>Checking saved key…</span>:
