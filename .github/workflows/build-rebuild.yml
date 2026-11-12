@@ -22,6 +22,8 @@ jobs:
           node-version: '22'
       - run: npm install --no-audit --no-fund
       - run: npm run build
+      - name: Verify Gemini BYOK serverless gateway without real API key
+        run: node --experimental-strip-types scripts/test-gemini-api.mjs
       - run: npx playwright install chromium
       - name: Install fixture encoder
         run: |
