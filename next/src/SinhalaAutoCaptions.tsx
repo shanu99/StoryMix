@@ -208,7 +208,7 @@ export function SinhalaAutoCaptions(){
    })
    if(controller.signal.aborted)return
    setResults(captions)
-   setUsedModel('Gemini 2.5 Flash')
+   setUsedModel('Gemini 3.5 Flash-Lite')
    setReviewReady(true)
    setStage(captions.length?'Review the transcript in the right Inspector.':'Gemini found no speech in this clip.')
    setProgress(100)
