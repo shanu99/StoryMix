@@ -53,7 +53,7 @@ test('one-time Google AI connection is saved securely, edited, restored and remo
  await expect(page.getByText(/placed 1 clips/)).toBeVisible({timeout:25000})
  await expect(panel.getByRole('button',{name:'Generate Sinhala AI captions'})).toBeEnabled()
  await panel.getByRole('button',{name:'Manage saved Gemini API key'}).click()
- await expect(dialog.getByLabel('Saved Gemini API key')).toBeVisible()
+ await expect(dialog.locator('[aria-label="Saved Gemini API key"]')).toBeVisible()
  await dialog.getByRole('button',{name:'Edit saved Gemini API key'}).click()
  await expect(dialog.locator('input[aria-label="Gemini API key"]')).toHaveValue(MOCK_KEY)
  const nextKey='AIza'+'z'.repeat(35)
