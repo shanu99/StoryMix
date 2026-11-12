@@ -10,7 +10,7 @@ test('new AQ authentication key saves, survives reload and can be removed',async
  const panel=page.getByRole('region',{name:'Sinhala AI Auto Captions'})
  await panel.getByRole('button',{name:'Connect Google AI'}).click()
  const dialog=page.getByRole('dialog',{name:'Connect Google AI'})
- await dialog.getByRole('textbox',{name:'Gemini API key'}).fill(AUTH_KEY)
+ await dialog.locator('input[aria-label="Gemini API key"]').fill(AUTH_KEY)
  await dialog.getByRole('button',{name:'Save Gemini API key'}).click()
  await expect(dialog).toHaveCount(0)
  await expect(panel.getByLabel('API key saved status')).toContainText('Saved')
