@@ -1,5 +1,5 @@
 import {useEffect,useMemo,useRef,useState,type CSSProperties} from 'react'
-import {AudioLines,Square,AlertTriangle,ChevronDown,CheckCircle2,Pencil,Trash2,Save} from 'lucide-react'
+import {AudioLines,Square,AlertTriangle,ChevronDown,CheckCircle2,Pencil,Trash2,Save,ArrowRight,KeyRound,Video,LoaderCircle} from 'lucide-react'
 import {loadGeminiApiKey,saveGeminiApiKey,removeGeminiApiKey,validGeminiApiKey} from './geminiKeyVault'
 import {useSelectionStore,useTracksStore} from '@elah/editor'
 import {decodeClipForAsr} from './audioForSinhalaAsr'
@@ -71,7 +71,9 @@ export function SinhalaAutoCaptions(){
   setSavingKey(true);setKeyError('')
   try{
    await saveGeminiApiKey(geminiKey)
-   setGeminiKey(geminiKey.trim())
+   const verified=await loadGeminiApiKey()
+   if(verified!==geminiKey.trim())throw Error('Could not confirm saved key. Please try saving again.')
+   setGeminiKey(verified)
    setKeyStatus('saved')
   }catch(e){
    setKeyError(e instanceof Error?e.message:'Could not save API key.')
@@ -163,7 +165,7 @@ export function SinhalaAutoCaptions(){
  }
  const runGemini=async()=>{
   if(!clip||running.current)return
-  if(!geminiKey.trim()||keyStatus==='loading'){
+  if(!geminiKey.trim()||keyStatus!=='saved'){
    setError('Enter your free Google AI Studio API key to use Gemini captions.')
    setState('error')
    return
@@ -214,82 +216,104 @@ export function SinhalaAutoCaptions(){
  }
  const run=()=>{void (engineMode==='gemini'?runGemini():runWhisper())}
  const processing=state==='decoding'||state==='loading'||state==='transcribing'
- return <section aria-label="Sinhala AI Auto Captions" style={{display:'grid',gap:11}}>
+ const keyReady=keyStatus==='saved'&&validGeminiApiKey(geminiKey)
+ const ready=!!clip&&(engineMode==='whisper'||keyReady)
+ const disabledReason=!clip?'Import a video or audio file to begin.':
+  engineMode==='gemini'&&!keyReady?(keyStatus==='loading'?'Checking saved API key…':'Save your Gemini API key to continue.'):''
+ const stepLabel:CSSProperties={fontSize:11,fontWeight:700,color:'#b3d5e8',letterSpacing:'.025em'}
+ const setupCard:CSSProperties={border:'1px solid #344f66',borderRadius:11,background:'#13283a',padding:12,display:'grid',gap:9}
+ return <section aria-label="Sinhala AI Auto Captions" style={{display:'grid',gap:12}}>
   <div style={{display:'grid',gap:5}}>
-   <strong style={{fontSize:14,color:'#eaf8ff'}}>Auto captions</strong>
-   <span style={info}>Gemini captions · Original spoken language · Auto-fit to video</span>
+   <strong style={{fontSize:16,color:'#f0faff'}}>Auto Captions</strong>
+   <span style={{...info,fontSize:11}}>Video එක තෝරන්න → Generate කරන්න → දකුණු පැත්තෙන් edit කරන්න.</span>
   </div>
-  {!sources.length
-   ?<div style={{padding:13,background:'#102638',border:'1px dashed #3b6578',borderRadius:9,color:'#a9c9d8',fontSize:12}}>
-     Import a video or audio file first.
-    </div>
-   :sources.length===1
-    ?<div aria-label="Selected caption source" style={{...info,padding:'9px 11px',borderRadius:8,background:'#172b3e',wordBreak:'break-word'}}>
-      <AudioLines size={14} style={{verticalAlign:'middle',marginRight:7}}/>{clip?.name}
-     </div>
-    :<label style={{display:'grid',gap:5,color:'#b6d2e1',fontSize:11}}>Caption source
-      <select aria-label="Auto captions media source" style={input} value={activeId} disabled={processing} onChange={e=>setSourceId(e.target.value)}>
-       {sources.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
-      </select>
-     </label>}
-  {engineMode==='gemini'&&<div style={{display:'grid',gap:8}}>
-   {keyStatus==='loading'&&<div role="status" style={info}>Checking saved Gemini API key…</div>}
-   {keyStatus==='saved'
-    ?<div aria-label="Saved Gemini API key" style={{display:'grid',gap:8,padding:11,background:'#142d36',border:'1px solid #316f68',borderRadius:9}}>
-      <div style={{display:'flex',gap:7,alignItems:'center',color:'#b2e7d5',fontSize:11}}>
-       <CheckCircle2 size={16}/> Gemini API key saved on this device
-      </div>
-      <div style={{fontSize:11,color:'#adc3d0'}}>••••••••{geminiKey.slice(-4)} · Automatically available when you return</div>
-      <div style={{display:'flex',gap:7}}>
-       <button type="button" aria-label="Edit saved Gemini API key" onClick={()=>{setKeyError('');setKeyStatus('editing')}} disabled={processing}
-        style={{...btn,flex:1,padding:7,display:'flex',gap:6,justifyContent:'center',alignItems:'center'}}><Pencil size={13}/> Edit</button>
-       <button type="button" aria-label="Remove saved Gemini API key" onClick={()=>void forgetKey()} disabled={processing||savingKey}
-        style={{...btn,padding:7,display:'flex',gap:6,alignItems:'center'}}><Trash2 size={13}/> Remove</button>
-      </div>
-     </div>
-    :keyStatus!=='loading'&&<div style={{display:'grid',gap:7}}>
-     <label style={{display:'grid',gap:5,fontSize:11,color:'#b8d3e4'}}>Google AI Studio API key
-      <input type="password" autoComplete="off" spellCheck={false}
-       aria-label="Gemini API key" placeholder="Paste your Gemini API key once"
-       value={geminiKey} disabled={processing||savingKey}
-       onChange={e=>{setGeminiKey(e.target.value);setKeyError('')}}
-       style={input}/>
-     </label>
-     <div style={{display:'flex',gap:7}}>
-      <button type="button" aria-label="Save Gemini API key" onClick={()=>void saveKey()}
-       disabled={processing||savingKey||!validGeminiApiKey(geminiKey)}
-       style={{...btn,flex:1,display:'flex',gap:7,alignItems:'center',justifyContent:'center',background:'#155573'}}>
-       <Save size={14}/> {savingKey?'Saving…':'Save key'}
-      </button>
-      {keyStatus==='editing'&&<button type="button" aria-label="Cancel editing Gemini API key"
-       onClick={()=>{void loadGeminiApiKey().then(value=>{
-        if(value){setGeminiKey(value);setKeyStatus('saved')}
-        else{setGeminiKey('');setKeyStatus('empty')}
-       }).catch(e=>{setKeyError(String(e));setKeyStatus('error')})}}
-       style={btn}>Cancel</button>}
-      {keyStatus==='error'&&<button type="button" aria-label="Clear unusable Gemini key" onClick={()=>void forgetKey()} style={btn}>Clear old key</button>}
-     </div>
-    </div>}
-   {keyError&&<div role="alert" style={{...info,color:'#ffb7ae'}}>{keyError}</div>}
-   <span style={info}>Saved only in this browser profile using encrypted device storage. No need to enter it every session. The key and audio are sent through our transcription gateway when you generate captions; never use this on a shared device.</span>
-   <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:'#7bd9ff'}}>Get a Gemini API key</a>
-  </div>}
-  <button type="button" aria-label="Generate Sinhala AI captions" onClick={run} disabled={processing||!clip||(engineMode==='gemini'&&(keyStatus==='loading'||!validGeminiApiKey(geminiKey)))}
-   style={{...btn,display:'flex',justifyContent:'center',alignItems:'center',gap:9,background:'#075b7e',borderColor:'#1499bd',padding:'12px',
-    opacity:processing||!clip?.5:1}}>
-   <AudioLines size={16}/> Generate Sinhala Captions
-  </button>
-  {processing&&<button type="button" aria-label="Cancel Sinhala transcription" onClick={stop}
-   style={{...btn,display:'flex',gap:6,alignItems:'center',justifyContent:'center'}}><Square size={14}/> Cancel</button>}
-  {processing&&<div role="status" style={{display:'grid',gap:6}}>
-   <div style={{height:5,background:'#20384b',borderRadius:9,overflow:'hidden'}}>
-    <div style={{width:(progress??2)+'%',height:'100%',background:'#16b9f5'}}/>
+  <div style={setupCard}>
+   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6}}>
+    <span style={stepLabel}>1. VIDEO / AUDIO</span>
+    {clip&&<span aria-label="Video ready" style={{display:'flex',gap:4,alignItems:'center',fontSize:10,color:'#98e7ce'}}><CheckCircle2 size={13}/> Ready</span>}
    </div>
-   <span style={info}>{stage}</span>
+   {!sources.length
+    ?<div role="status" style={{...info,padding:'10px 8px',border:'1px dashed #54718a',borderRadius:8}}>
+       <Video size={15} style={{verticalAlign:'middle',marginRight:8}}/>Import a video or audio file first.
+     </div>
+    :sources.length===1
+     ?<div aria-label="Selected caption source" style={{...info,display:'flex',gap:9,alignItems:'center',minWidth:0}}>
+       <Video size={16} color="#77cdea"/><span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}} title={clip?.name}>{clip?.name}</span>
+      </div>
+     :<select aria-label="Auto captions media source" style={input} value={activeId} disabled={processing} onChange={e=>setSourceId(e.target.value)}>
+       {sources.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+      </select>}
+  </div>
+  {engineMode==='gemini'&&<div style={setupCard}>
+   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:7}}>
+    <span style={stepLabel}>2. GEMINI AI</span>
+    {keyReady&&<span aria-label="API key saved status" role="status" style={{fontSize:10,fontWeight:700,color:'#99f0cc',display:'flex',alignItems:'center',gap:5}}>
+      <CheckCircle2 size={15}/> KEY SAVED
+     </span>}
+   </div>
+   {keyStatus==='loading'&&<div role="status" style={{...info,display:'flex',gap:6,alignItems:'center'}}><LoaderCircle size={15}/> Checking saved key…</div>}
+   {keyStatus==='saved'&&
+    <div aria-label="Saved Gemini API key" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6,padding:'9px 10px',borderRadius:9,background:'#0c302d',border:'1px solid #2d7162'}}>
+     <div style={{minWidth:0,display:'grid',gap:2}}>
+      <strong style={{fontSize:12,color:'#b4f7db'}}>Gemini is ready</strong>
+      <span style={{fontSize:10,color:'#9bc8bb'}}>Saved on this device · •••• {geminiKey.slice(-4)}</span>
+     </div>
+     <button type="button" aria-label="Edit saved Gemini API key" disabled={processing} onClick={()=>{setKeyError('');setKeyStatus('editing')}}
+      style={{...btn,padding:'7px 9px',display:'flex',gap:5,alignItems:'center',background:'#174940',fontSize:11}}><Pencil size={13}/> Edit</button>
+    </div>}
+   {keyStatus!=='saved'&&keyStatus!=='loading'&&
+    <div style={{display:'grid',gap:9}}>
+     <span style={{...info,fontSize:11}}>{keyStatus==='editing'?'Change your saved key below.':'Paste your Google AI Studio key once. StoryMix will remember it.'}</span>
+     <input type="password" autoComplete="off" spellCheck={false} aria-label="Gemini API key" placeholder="Paste your Gemini API key"
+      value={geminiKey} disabled={processing||savingKey} onChange={e=>{setGeminiKey(e.target.value);setKeyError('')}} style={input}/>
+     <button type="button" aria-label="Save Gemini API key" onClick={()=>void saveKey()}
+      disabled={processing||savingKey||!validGeminiApiKey(geminiKey)}
+      style={{...btn,display:'flex',alignItems:'center',justifyContent:'center',gap:8,background:'#14698e',opacity:validGeminiApiKey(geminiKey)?1:.6}}>
+      <Save size={15}/>{savingKey?'Saving…':'Save API Key'}
+     </button>
+     {keyStatus==='editing'&&<button type="button" aria-label="Cancel editing Gemini API key"
+      onClick={()=>{void loadGeminiApiKey().then(value=>{if(value){setGeminiKey(value);setKeyStatus('saved')}else{setGeminiKey('');setKeyStatus('empty')}}).catch(e=>{setKeyError(String(e));setKeyStatus('error')})}}
+      style={{...btn,padding:6,fontSize:11}}>Cancel changes</button>}
+     {keyStatus==='error'&&<button type="button" aria-label="Clear unusable Gemini key" style={btn} onClick={()=>void forgetKey()}>Clear unusable key</button>}
+     <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:'#8cdbff'}}>Get a free-tier Gemini API key</a>
+    </div>}
+   {keyStatus==='saved'&&<details style={{fontSize:10,color:'#a4bdc9'}}>
+    <summary style={{cursor:'pointer'}} aria-label="API key management">Manage API key</summary>
+    <div style={{display:'grid',gap:6,paddingTop:8}}>
+     <span>Stored in encrypted browser storage. Removing it won't affect the saved project.</span>
+     <button type="button" aria-label="Remove saved Gemini API key" onClick={()=>void forgetKey()} disabled={processing||savingKey}
+      style={{...btn,padding:7,fontSize:11,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+      <Trash2 size={13}/> Remove saved key</button>
+    </div>
+   </details>}
+   {keyError&&<div role="alert" style={{...info,color:'#ffb7ae'}}>{keyError}</div>}
+   <span style={{...info,fontSize:10}}>Key saved ≠ Google quota verified. Audio is sent to Google when generating; free-tier limits apply. Don't save keys on a shared device.</span>
   </div>}
-  {state==='error'&&<div role="alert" style={{...info,color:'#ffb5b5',display:'flex',gap:6}}><AlertTriangle size={16}/>{error}</div>}
-  {reviewReady&&results.length>0&&<output role="status" style={{...info,color:'#91def6'}}>Generated {results.length} Sinhala captions. Review and edit them in the Inspector on the right.</output>}
-  {state==='review'&&!results.length&&<span role="status" style={info}>{stage}</span>}
+  <div style={{display:'grid',gap:8}}>
+   <span style={stepLabel}>{engineMode==='gemini'?'3. GENERATE CAPTIONS':'2. GENERATE CAPTIONS'}</span>
+   <button type="button" aria-label="Generate Sinhala AI captions" onClick={run} disabled={processing||!ready}
+    style={{...btn,padding:'14px 10px',fontSize:13,fontWeight:700,display:'flex',justifyContent:'center',gap:9,alignItems:'center',
+     borderColor:ready?'#1992bb':'#37566c',background:ready?'#075d82':'#284354',opacity:processing?.65:1}}>
+    <AudioLines size={18}/> Generate Captions <ArrowRight size={15}/>
+   </button>
+   {!processing&&disabledReason&&<span aria-label="Caption setup needed" style={{...info,fontSize:11,color:'#e1c58d'}}>{disabledReason}</span>}
+   {ready&&!processing&&state!=='review'&&<span style={{...info,fontSize:10}}>One click · Original spoken language · Auto timing and video ratio</span>}
+  </div>
+  {processing&&<div role="status" style={{...setupCard,gap:8}}>
+   <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#d8f2ff'}}>
+    <strong>Generating captions…</strong><span>{progress!==null?progress+'%':'Preparing'}</span>
+   </div>
+   <div style={{height:6,background:'#254054',borderRadius:9,overflow:'hidden'}}><div style={{height:'100%',width:(progress??5)+'%',background:'#16b9f5',transition:'width .3s'}}/></div>
+   <span style={info}>{stage}</span>
+   <button type="button" aria-label="Cancel Sinhala transcription" onClick={stop} style={{...btn,padding:8,display:'flex',justifyContent:'center',alignItems:'center',gap:6}}>
+    <Square size={13}/> Cancel</button>
+  </div>}
+  {state==='error'&&<div role="alert" style={{...info,color:'#ffc4ba',padding:10,border:'1px solid #8b5757',borderRadius:8}}><AlertTriangle size={14} style={{verticalAlign:'middle',marginRight:5}}/>{error}</div>}
+  {reviewReady&&results.length>0&&<div role="status" style={{...setupCard,background:'#11352e',borderColor:'#327a65',gap:6}}>
+   <strong style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'#b2f6d4'}}><CheckCircle2 size={17}/> {results.length} captions generated</strong>
+   <span style={{...info,color:'#c4e8dd'}}>Next: Review and Add to Timeline in the right Inspector →</span>
+  </div>}
+  {state==='review'&&!results.length&&<div role="status" style={info}>{stage}</div>}
   <details style={{borderTop:'1px solid #304758',paddingTop:9}}>
    <summary style={{fontSize:11,color:'#9fbfd1',cursor:'pointer',listStyle:'none'}}>
     <ChevronDown size={13} style={{verticalAlign:'middle'}}/> Advanced settings
@@ -304,7 +328,7 @@ export function SinhalaAutoCaptions(){
     </label>
     {engineMode==='whisper'&&<label style={{display:'grid',gap:5,fontSize:11}}>Speech model
      <select aria-label="Sinhala transcription model" value={model} style={input} disabled={processing} onChange={e=>setModel(e.target.value as typeof model)}>
-      <option value="sinhala">Sinhala-trained Whisper (recommended)</option>
+      <option value="sinhala">Sinhala-trained Whisper (experimental)</option>
       <option value="multilingual">Multilingual Whisper (may require correction)</option>
      </select>
     </label>}
