@@ -10,7 +10,7 @@ export const maxDuration=60
 
 type GeminiSegment={start:number;end:number;text:string}
 type GeminiReply={segments?:unknown}
-const MODEL='gemini-3.5-flash-lite'
+const MODELS=['gemini-3.5-flash-lite','gemini-3.6-flash'] as const
 const MAX_BYTES=2_000_000
 const LIMIT_SECONDS=50
 const headers={
@@ -73,40 +73,48 @@ export default {
    generationConfig:{
     responseMimeType:'application/json',
     temperature:0,
-    responseSchema:{
-     type:'OBJECT',
-     properties:{segments:{
-      type:'ARRAY',
-      items:{type:'OBJECT',properties:{
-       start:{type:'NUMBER'},end:{type:'NUMBER'},text:{type:'STRING'},
-      },required:['start','end','text']},
-     }},
-     required:['segments'],
-    },
    },
   }
-  const controller=new AbortController()
-  const timeout=setTimeout(()=>controller.abort(),51_000)
-  let response:Response
-  try{
-   response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+MODEL+':generateContent',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','x-goog-api-key':key},
-    body:JSON.stringify(modelRequest),
-    signal:controller.signal,
-   })
-  }catch(e){
-   return errorMessage(504,'Gemini request timed out or failed. Try again with a shorter clip.')
-  }finally{clearTimeout(timeout)}
+  // One bounded retry on transient upstream errors. The second attempt uses a
+  // different generally-available audio-capable model. Never retry quota/auth errors.
+  // Keep the total time below the 60-second serverless execution limit.
+  let response:Response|null=null
+  let usedModel:string=MODELS[0]
+  let lastFailure: 'timeout'|'network'|null=null
+  for(const model of MODELS){
+   usedModel=model
+   const controller=new AbortController()
+   const timeout=setTimeout(()=>controller.abort(),23_000)
+   try{
+    response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{
+     method:'POST',
+     headers:{'Content-Type':'application/json','x-goog-api-key':key,'x-goog-api-client':'storymix/0.3'},
+     body:JSON.stringify(modelRequest),
+     signal:controller.signal,
+    })
+    lastFailure=null
+    // Retry only service errors or missing access to a particular model.
+    if(![404,500,502,503,504].includes(response.status))break
+   }catch(e){
+    response=null
+    lastFailure=controller.signal.aborted?'timeout':'network'
+   }finally{clearTimeout(timeout)}
+  }
+  if(!response){
+   return errorMessage(504,lastFailure==='timeout'
+    ?'Gemini did not respond in time after two attempts. Please retry with a shorter clip.'
+    :'Could not reach Google after two attempts. Check the connection and retry.')
+  }
   if(!response.ok){
-   // Do not relay raw Google errors: they can contain details about a key.
-   const reason=response.status===400?'Gemini rejected the audio request.'
-    :response.status===401||response.status===403?'API key denied. Check Gemini access and project permissions.'
-    :response.status===429?'Gemini Free Tier rate limit reached. Retry later.'
-    :response.status===404?'Gemini model access is unavailable for this API key. Check Google AI Studio model access.'
-    :response.status>=500?'Google is temporarily unavailable. Retry later.'
-    :'Gemini transcription failed (HTTP '+response.status+').'
-   return errorMessage(response.status===429?429:502,reason)
+   // Never expose raw Google responses, credentials, or upstream request payloads.
+   const code=response.status
+   if(code===400)return errorMessage(400,'Gemini could not process this audio chunk. Try a shorter clip or another source.')
+   if(code===401||code===403)return errorMessage(403,'Google rejected access for this API key. Check its permissions in AI Studio.')
+   if(code===429)return errorMessage(429,'Gemini quota or rate limit reached. Check your Google AI Studio usage.')
+   if(code===404)return errorMessage(502,'Neither available Gemini model could be used with this key.')
+   if([500,502,503,504].includes(code))
+    return errorMessage(503,'Google returned HTTP '+code+' after two model attempts. Its service may be overloaded; retry later.')
+   return errorMessage(502,'Gemini request failed (HTTP '+code+').')
   }
   let parsed:unknown
   try{
@@ -114,6 +122,6 @@ export default {
    const answer=body.candidates?.[0]?.content?.parts?.map(p=>p.text??'').join('')??''
    parsed=JSON.parse(answer.replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,''))
   }catch{return errorMessage(502,'Gemini did not provide valid timed captions. Please retry.')}
-  return json({segments:decodeSegments(parsed,duration),model:MODEL})
+  return json({segments:decodeSegments(parsed,duration),model:usedModel})
  }
 }
