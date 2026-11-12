@@ -2,6 +2,7 @@ import {useEffect,useMemo,useRef,useState,type CSSProperties} from 'react'
 import {AudioLines,Square,AlertTriangle,ChevronDown} from 'lucide-react'
 import {useSelectionStore,useTracksStore} from '@elah/editor'
 import {decodeClipForAsr} from './audioForSinhalaAsr'
+import {transcribeGemini} from './geminiTranscription'
 
 import type {CaptionSegment} from './sinhalaAsr'
 import {useCaptionWorkspace} from './CaptionWorkspaceState'
@@ -40,10 +41,11 @@ export function SinhalaAutoCaptions(){
  const clip=sources.find(c=>c.id===activeId)
  const [model,setModel]=useState<'sinhala'|'multilingual'>('sinhala')
  const [preferGpu,setPreferGpu]=useState(false)
+ const [engineMode,setEngineMode]=useState<'gemini'|'whisper'>('gemini')
  const [state,setState]=useState<State>('idle')
  const [stage,setStage]=useState('Ready')
  const [progress,setProgress]=useState<number|null>(null)
- const {draft:results,setDraft:setResults,setSourceClipId,setReviewReady,reviewReady,setFeedback}=useCaptionWorkspace()
+ const {draft:results,setDraft:setResults,setSourceClipId,setReviewReady,reviewReady,setFeedback,geminiKey,setGeminiKey,setLanguageMode}=useCaptionWorkspace()
  const [error,setError]=useState('')
  const [usedModel,setUsedModel]=useState('')
  const running=useRef<{worker:Worker|null;controller:AbortController}|null>(null)
@@ -54,7 +56,8 @@ export function SinhalaAutoCaptions(){
   running.current=null;run?.controller.abort();run?.worker?.terminate()
   setState('idle');setStage('Cancelled');setProgress(null);setReviewReady(false)
  }
- const run=async()=>{
+ const runWhisper=async()=>{
+  setLanguageMode('sinhala')
   if(!clip||running.current)return
   if(clip.type==='video'&&clip.embeddedAudio===false){
    setError('This video has detached audio. Choose its audio track instead.');setState('error');return
@@ -119,11 +122,63 @@ export function SinhalaAutoCaptions(){
    if(running.current?.controller===controller){running.current.worker?.terminate();running.current=null}
   }
  }
+ const runGemini=async()=>{
+  if(!clip||running.current)return
+  if(!geminiKey.trim()){
+   setError('Enter your free Google AI Studio API key to use Gemini captions.')
+   setState('error')
+   return
+  }
+  if(clip.type==='video'&&clip.embeddedAudio===false){
+   setError('This video has detached audio. Select its linked audio track instead.')
+   setState('error');return
+  }
+  const controller=new AbortController()
+  running.current={controller,worker:null}
+  setSourceClipId(clip.id)
+  setLanguageMode('original')
+  setReviewReady(false)
+  setFeedback('')
+  setResults([]);setError('');setProgress(null);setUsedModel('')
+  setState('decoding');setStage('Extracting audio from your clip…')
+  try{
+   const waveform=await decodeClipForAsr(clip.src!,{
+    sourceStartSeconds:clip.sourceStartFrame/FPS,
+    sourceDurationSeconds:clip.durationFrames/FPS*(clip.speed??1),
+    signal:controller.signal,
+    onProgress:msg=>{if(!controller.signal.aborted)setStage(msg)},
+   })
+   if(controller.signal.aborted)return
+   setState('transcribing');setStage('Gemini is transcribing the audio…')
+   const captions=await transcribeGemini(waveform,geminiKey,controller.signal,(done,total)=>{
+    if(!controller.signal.aborted){
+     setState('transcribing')
+     setProgress(Math.round(done/total*100))
+     setStage('Transcribing audio with Gemini: '+done+' / '+total+' sections')
+    }
+   })
+   if(controller.signal.aborted)return
+   setResults(captions)
+   setUsedModel('Gemini 2.5 Flash')
+   setReviewReady(true)
+   setStage(captions.length?'Review the transcript in the right Inspector.':'Gemini found no speech in this clip.')
+   setProgress(100)
+   setState('review')
+  }catch(caught){
+   if(!controller.signal.aborted){
+    setError(caught instanceof Error?caught.message:String(caught))
+    setState('error');setProgress(null)
+   }
+  }finally{
+   if(running.current?.controller===controller)running.current=null
+  }
+ }
+ const run=()=>{void (engineMode==='gemini'?runGemini():runWhisper())}
  const processing=state==='decoding'||state==='loading'||state==='transcribing'
  return <section aria-label="Sinhala AI Auto Captions" style={{display:'grid',gap:11}}>
   <div style={{display:'grid',gap:5}}>
    <strong style={{fontSize:14,color:'#eaf8ff'}}>Auto captions</strong>
-   <span style={info}>සිංහල කථනය → සිංහල අකුරු · Video ratio එකට auto-fit</span>
+   <span style={info}>Gemini captions · Original spoken language · Auto-fit to video</span>
   </div>
   {!sources.length
    ?<div style={{padding:13,background:'#102638',border:'1px dashed #3b6578',borderRadius:9,color:'#a9c9d8',fontSize:12}}>
@@ -138,7 +193,18 @@ export function SinhalaAutoCaptions(){
        {sources.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
       </select>
      </label>}
-  <button type="button" aria-label="Generate Sinhala AI captions" onClick={()=>void run()} disabled={processing||!clip}
+  {engineMode==='gemini'&&<div style={{display:'grid',gap:6}}>
+   <label style={{display:'grid',gap:5,fontSize:11,color:'#b8d3e4'}}>
+    Google AI Studio API key (one-time per session)
+    <input type="password" autoComplete="off" spellCheck={false}
+     aria-label="Gemini API key" placeholder="Paste your free API key"
+     value={geminiKey} disabled={processing} onChange={e=>setGeminiKey(e.target.value)}
+     style={input}/>
+   </label>
+   <span style={info}>Uses your own Gemini Free Tier quota. Your audio goes to Google for transcription; the key stays in this browser session and is never saved.</span>
+   <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:'#7bd9ff'}}>Get a free Gemini API key</a>
+  </div>}
+  <button type="button" aria-label="Generate Sinhala AI captions" onClick={run} disabled={processing||!clip}
    style={{...btn,display:'flex',justifyContent:'center',alignItems:'center',gap:9,background:'#075b7e',borderColor:'#1499bd',padding:'12px',
     opacity:processing||!clip?.5:1}}>
    <AudioLines size={16}/> Generate Sinhala Captions
@@ -159,17 +225,24 @@ export function SinhalaAutoCaptions(){
     <ChevronDown size={13} style={{verticalAlign:'middle'}}/> Advanced settings
    </summary>
    <div style={{display:'grid',gap:10,marginTop:10}}>
-    <label style={{display:'grid',gap:5,fontSize:11}}>Speech model
+    <label style={{display:'grid',gap:5,fontSize:11}}>Caption engine
+     <select aria-label="Caption recognition engine" value={engineMode} disabled={processing}
+      style={input} onChange={e=>setEngineMode(e.target.value as 'gemini'|'whisper')}>
+      <option value="gemini">Gemini API (recommended)</option>
+      <option value="whisper">Local Whisper (experimental, paused)</option>
+     </select>
+    </label>
+    {engineMode==='whisper'&&<label style={{display:'grid',gap:5,fontSize:11}}>Speech model
      <select aria-label="Sinhala transcription model" value={model} style={input} disabled={processing} onChange={e=>setModel(e.target.value as typeof model)}>
       <option value="sinhala">Sinhala-trained Whisper (recommended)</option>
       <option value="multilingual">Multilingual Whisper (may require correction)</option>
      </select>
-    </label>
-    <label style={{display:'flex',gap:6,fontSize:11,color:'#b2cddc',alignItems:'center'}}>
+    </label>}
+    {engineMode==='whisper'&&<label style={{display:'flex',gap:6,fontSize:11,color:'#b2cddc',alignItems:'center'}}>
      <input aria-label="Use GPU for Sinhala captions" type="checkbox" checked={preferGpu} disabled={processing} onChange={e=>setPreferGpu(e.target.checked)}/>
      Try GPU acceleration
-    </label>
-    <span style={info}>The model is downloaded on first use. Audio stays in your browser. AI words may need corrections; Singlish cannot be automatically assumed to be accurate Sinhala.</span>
+    </label>}
+    <span style={info}>{engineMode==='gemini'?'Gemini processes the selected audio in Google Cloud. Review generated timings before export.':'Experimental local Whisper is kept for comparison. Its model downloads to your browser and has known Sinhala accuracy issues.'}</span>
     {usedModel&&<small style={info}>Recognition model: {usedModel}</small>}
    </div>
   </details>
