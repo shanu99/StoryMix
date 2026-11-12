@@ -102,7 +102,7 @@ test('Gemini audio gateway: real 16 kHz WAV chunks, timed mixed-language caption
   const request=route.request()
   expect(request.method()).toBe('POST')
   expect(request.headers()['content-type']).toContain('audio/wav')
-  expect(request.headers()['x-storymix-gemini-key']).toBe(MOCK_KEY)
+  expect(request.headers()['x-storymix-gemini-key']).toBe(AUTH_KEY)
   const bytes=request.postDataBuffer()!
   expect(bytes.subarray(0,4).toString()).toBe('RIFF')
   expect(bytes.subarray(8,12).toString()).toBe('WAVE')
@@ -117,7 +117,7 @@ test('Gemini audio gateway: real 16 kHz WAV chunks, timed mixed-language caption
  await importAudio(page)
  await page.getByRole('button',{name:'Connect Google AI'}).click()
  const setup=page.getByRole('dialog',{name:'Connect Google AI'})
- await setup.locator('input[aria-label="Gemini API key"]').fill(MOCK_KEY)
+ await setup.locator('input[aria-label="Gemini API key"]').fill(AUTH_KEY)
  await setup.getByRole('button',{name:'Save Gemini API key'}).click()
  await expect(setup).toHaveCount(0)
  await expect(page.getByLabel('API key saved status')).toContainText('Saved')
