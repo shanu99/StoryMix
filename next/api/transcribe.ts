@@ -10,7 +10,7 @@ export const maxDuration=60
 
 type GeminiSegment={start:number;end:number;text:string}
 type GeminiReply={segments?:unknown}
-const MODEL='gemini-2.5-flash'
+const MODEL='gemini-3.5-flash-lite'
 const MAX_BYTES=2_000_000
 const LIMIT_SECONDS=50
 const headers={
@@ -103,7 +103,7 @@ export default {
    const reason=response.status===400?'Gemini rejected the audio request.'
     :response.status===401||response.status===403?'API key denied. Check Gemini access and project permissions.'
     :response.status===429?'Gemini Free Tier rate limit reached. Retry later.'
-    :response.status===404?'Selected Gemini model is unavailable for this key or region.'
+    :response.status===404?'Gemini model access is unavailable for this API key. Check Google AI Studio model access.'
     :response.status>=500?'Google is temporarily unavailable. Retry later.'
     :'Gemini transcription failed (HTTP '+response.status+').'
    return errorMessage(response.status===429?429:502,reason)
