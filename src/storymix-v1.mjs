@@ -109,8 +109,7 @@ $('saveGeminiKey').onclick=()=>{
  }catch(e){setGeminiKeyFeedback('Could not save. Check browser site storage settings.')}
 };
 $('editGeminiKey').onclick=()=>{
- savedGeminiKey='';
- // Keep the existing saved key until the user saves a replacement.
+ // Keep the saved key active until the user successfully replaces it.
  $('geminiKeyEditor').classList.remove('hide');
  $('geminiKeySaved').classList.add('hide');
  $('geminiKeyStatus').textContent='Change key';
