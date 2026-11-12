@@ -78,7 +78,7 @@ async function encryptionKey():Promise<CryptoKey>{
  return key
 }
 export function validGeminiApiKey(value:string):boolean{
- return /^AIza[A-Za-z0-9_-]{25,}$/.test(value.trim())
+ return /^(?:AIza[A-Za-z0-9_-]{25,}|AQ\\.[A-Za-z0-9._~-]{25,})$/.test(value.trim())
 }
 export async function saveGeminiApiKey(value:string):Promise<void>{
  const plain=value.trim()
