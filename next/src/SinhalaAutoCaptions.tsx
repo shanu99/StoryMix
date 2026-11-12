@@ -201,7 +201,7 @@ export function SinhalaAutoCaptions(){
      value={geminiKey} disabled={processing} onChange={e=>setGeminiKey(e.target.value)}
      style={input}/>
    </label>
-   <span style={info}>Uses your own Gemini Free Tier quota. Your audio goes to Google for transcription; the key stays in this browser session and is never saved.</span>
+   <span style={info}>Uses your own Gemini quota (Free Tier limits apply). Audio is sent to Google; your key passes through a serverless relay for each request and is not saved.</span>
    <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:'#7bd9ff'}}>Get a free Gemini API key</a>
   </div>}
   <button type="button" aria-label="Generate Sinhala AI captions" onClick={run} disabled={processing||!clip}
