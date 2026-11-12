@@ -41,7 +41,7 @@ export default {
   if(request.method!=='POST')return errorMessage(405,'Only POST is supported.')
   if(request.headers.get('content-type')?.split(';')[0]!=='audio/wav')return errorMessage(415,'Expected a 16 kHz mono WAV file.')
   const key=request.headers.get('x-storymix-gemini-key')?.trim()??''
-  if(!/^AIza[A-Za-z0-9_-]{25,}$/.test(key))return errorMessage(401,'Enter a valid Google AI Studio API key.')
+  if(!/^(?:AIza[A-Za-z0-9_-]{25,}|AQ\.[^\s]{20,})$/.test(key))return errorMessage(401,'Enter a valid Google AI Studio API key.')
   const size=Number(request.headers.get('content-length')||0)
   if(size>MAX_BYTES)return errorMessage(413,'Audio chunk is too large. Please retry with a shorter clip.')
   let data:ArrayBuffer
