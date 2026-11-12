@@ -24,6 +24,7 @@ test('Gemini key is saved encrypted on this device, restores on reload, and is e
  await panel.locator('input[aria-label="Gemini API key"]').fill(MOCK_KEY)
  await panel.getByRole('button',{name:'Save Gemini API key'}).click()
  await expect(panel.locator('[aria-label="Saved Gemini API key"]')).toBeVisible()
+ await expect(panel.getByLabel('API key saved status')).toContainText('KEY SAVED')
  await expect(panel.locator('input[aria-label="Gemini API key"]')).toHaveCount(0)
  const raw=await page.evaluate(async()=>{
   const db=await new Promise<IDBDatabase>((resolve,reject)=>{
@@ -51,6 +52,7 @@ test('Gemini key is saved encrypted on this device, restores on reload, and is e
  await page.locator('input[aria-label="Choose video audio or image files"]').setInputFiles(fixture('test-audio.wav'))
  await expect(page.getByText(/placed 1 clips/)).toBeVisible({timeout:25000})
  await expect(panel.getByRole('button',{name:'Generate Sinhala AI captions'})).toBeEnabled()
+ await expect(panel.getByText('3. GENERATE CAPTIONS')).toBeVisible()
  await panel.getByRole('button',{name:'Edit saved Gemini API key'}).click()
  await expect(panel.locator('input[aria-label="Gemini API key"]')).toHaveValue(MOCK_KEY)
  const newKey='AIza'+'z'.repeat(35)
@@ -60,6 +62,7 @@ test('Gemini key is saved encrypted on this device, restores on reload, and is e
  await page.reload()
  await page.getByRole('button',{name:'Captions',exact:true}).click()
  await expect(panel.locator('[aria-label="Saved Gemini API key"]')).toContainText(newKey.slice(-4))
+ await panel.getByText('Manage API key').click()
  await panel.getByRole('button',{name:'Remove saved Gemini API key'}).click()
  await expect(panel.locator('input[aria-label="Gemini API key"]')).toHaveValue('')
  await page.reload()
@@ -146,4 +149,15 @@ test('WAV packaging and overlap deduplication work without any Google request',a
  expect(out.segmentCount).toBe(2)
  expect(out.englishIssue).toBeNull()
  expect(out.singlishLocal).toMatch(/Singlish/)
+})
+
+test('caption workspace shows actionable onboarding when no video and no saved key',async({page})=>{
+ await page.goto('/')
+ await page.getByRole('button',{name:'Captions',exact:true}).click()
+ const panel=page.getByRole('region',{name:'Sinhala AI Auto Captions'})
+ await expect(panel.getByText('1. VIDEO / AUDIO')).toBeVisible()
+ await expect(panel.getByText('2. GEMINI AI')).toBeVisible()
+ await expect(panel.getByText('3. GENERATE CAPTIONS')).toBeVisible()
+ await expect(panel.getByLabel('Caption setup needed')).toContainText('Import a video or audio file')
+ await expect(panel.getByRole('button',{name:'Generate Sinhala AI captions'})).toBeDisabled()
 })
