@@ -82,14 +82,61 @@ $('addAudioTrack').onclick=()=>{const id=UID(),name='Audio '+(current().tracks.f
 $('addText').onclick=()=>textClip('text');$('addCaption').onclick=()=>textClip('caption');$('apply').onclick=applyProperties;
 $('zoom').oninput=e=>{zoom=Number(e.target.value);render()};$('zoomIn').onclick=()=>{$('zoom').value=clamp(zoom+25,50,300);$('zoom').oninput({target:$('zoom')})};$('zoomOut').onclick=()=>{$('zoom').value=clamp(zoom-25,50,300);$('zoom').oninput({target:$('zoom')})};
 $('export').onclick=exportVideo;
+// The user explicitly opts in to browser-local persistence; never include this key in project exports.
+const GEMINI_KEY_STORAGE='storymix-gemini-api-key-v1';
+let savedGeminiKey='';
+function setGeminiKeyFeedback(message){$('geminiKeyMessage').textContent=message}
+function renderGeminiKeySettings(){
+ const saved=Boolean(savedGeminiKey);
+ $('geminiKeyStatus').textContent=saved?'Saved on this browser':'Not saved';
+ $('geminiKeyStatus').classList.toggle('saved',saved);
+ $('geminiKeyEditor').classList.toggle('hide',saved);
+ $('geminiKeySaved').classList.toggle('hide',!saved);
+ if(saved)$('geminiKey').value='';
+}
+try{savedGeminiKey=localStorage.getItem(GEMINI_KEY_STORAGE)||''}
+catch(e){setGeminiKeyFeedback('Browser storage is unavailable. Enable site storage to save your key.')}
+renderGeminiKeySettings();
+$('saveGeminiKey').onclick=()=>{
+ const key=$('geminiKey').value.trim();
+ if(!key){setGeminiKeyFeedback('Paste your Google AI key first.');return}
+ try{
+  localStorage.setItem(GEMINI_KEY_STORAGE,key);
+  if(localStorage.getItem(GEMINI_KEY_STORAGE)!==key)throw Error('Storage verification failed');
+  savedGeminiKey=key;
+  setGeminiKeyFeedback('Saved on this browser. Ready to generate captions.');
+  renderGeminiKeySettings();
+ }catch(e){setGeminiKeyFeedback('Could not save. Check browser site storage settings.')}
+};
+$('editGeminiKey').onclick=()=>{
+ savedGeminiKey='';
+ // Keep the existing saved key until the user saves a replacement.
+ $('geminiKeyEditor').classList.remove('hide');
+ $('geminiKeySaved').classList.add('hide');
+ $('geminiKeyStatus').textContent='Change key';
+ $('geminiKeyStatus').classList.remove('saved');
+ setGeminiKeyFeedback('Enter a new key and select Save key.');
+ $('geminiKey').focus();
+};
+$('removeGeminiKey').onclick=()=>{
+ try{localStorage.removeItem(GEMINI_KEY_STORAGE);savedGeminiKey='';$('geminiKey').value='';renderGeminiKeySettings();setGeminiKeyFeedback('Key removed from this browser.')}
+ catch(e){setGeminiKeyFeedback('Could not remove key. Check browser storage permissions.')}
+};
+$('toggleGeminiKey').onclick=()=>{
+ const input=$('geminiKey'),visible=input.type==='password';
+ input.type=visible?'text':'password';
+ $('toggleGeminiKey').textContent=visible?'Hide':'Show';
+ $('toggleGeminiKey').setAttribute('aria-label',visible?'Hide API key':'Show API key');
+};
 const getSubtitles=()=>current().tracks.filter(t=>t.type==='caption').flatMap(t=>t.clips.map(c=>({start:c.start,end:c.start+c.duration,text:c.text||''})));
 $('generateCaptions').onclick=async()=>{
  const btn=$('generateCaptions'),id=$('transcribeSource').value,asset=assets.get(id);
  if(!asset||asset.type!=='audio')return error('Import and select an audio file first');
- if(!$('geminiKey').value.trim())return error('Enter your Gemini API key first');
+ const apiKey=$('geminiKey').value.trim()||savedGeminiKey;
+ if(!apiKey)return error('Save your Gemini API key first');
  btn.disabled=true;btn.textContent='Generating…';error('');status('Sending selected audio to Google for timed transcription…');
  try{
-  const segments=await transcribeAudio({file:asset.file,apiKey:$('geminiKey').value,language:$('transcribeLanguage').value});
+  const segments=await transcribeAudio({file:asset.file,apiKey,language:$('transcribeLanguage').value});
   const p=current(),existing=p.tracks.find(t=>t.id==='caption-1'),useBase=existing&&existing.clips.length===0,trackId=useBase?'caption-1':UID();
   const aligned=p.tracks.flatMap(t=>t.clips).find(c=>c.mediaId===id);
   const offset=aligned?aligned.start-(aligned.inPoint/(aligned.speed||1)):0;
