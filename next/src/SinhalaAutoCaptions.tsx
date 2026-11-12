@@ -319,7 +319,7 @@ export function SinhalaAutoCaptions(){
           style={{...btn,padding:10}}>{revealKey?<EyeOff size={17}/>:<Eye size={17}/>}</button>
         </div>
         {keyError&&<div role="alert" style={{...subtle,color:'#ffb4aa'}}>{keyError}</div>}
-        {!keyError&&geminiKey.trim()&&!validGeminiApiKey(geminiKey)&&<span style={{...subtle,color:'#e9bda6'}}>Check the key you pasted. Google AI Studio keys usually start with AIza.</span>}
+        {!keyError&&geminiKey.trim()&&!validGeminiApiKey(geminiKey)&&<span style={{...subtle,color:'#e9bda6'}}>Paste the complete Google AI Studio key (AQ. or AIza).</span>}
         {keyStatus==='error'&&<button type="button" style={btn} onClick={()=>void forgetKey()} disabled={savingKey}>Reset saved key</button>}
         <button type="button" aria-label="Save Gemini API key" onClick={()=>void saveKey()} disabled={savingKey}
          style={{...buttonPrimary,opacity:savingKey?.55:1}}><Save size={16}/> {savingKey?'Saving…':'Save API key'}</button>
