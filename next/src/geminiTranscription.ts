@@ -51,7 +51,7 @@ export async function transcribeGemini(
  signal:AbortSignal,
  onProgress:(current:number,total:number)=>void,
 ):Promise<CaptionSegment[]>{
- if(!/^AIza[A-Za-z0-9_-]{25,}$/.test(key.trim()))throw Error('Paste your Google AI Studio API key first.')
+ if(!/^(?:AIza[A-Za-z0-9_-]{25,}|AQ\.[^\s]{20,})$/.test(key.trim()))throw Error('Paste your Google AI Studio API key first.')
  if(waveform.length<1600||waveform.length>MAX_DURATION*SAMPLE_RATE)throw Error('Select audio between 0.1 and 25 minutes.')
  const chunkFrames=CHUNK_SECONDS*SAMPLE_RATE
  const stride=chunkFrames-OVERLAP_SECONDS*SAMPLE_RATE
