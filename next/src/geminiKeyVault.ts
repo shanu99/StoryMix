@@ -38,10 +38,21 @@ async function transaction<T>(
  try{
   return await new Promise<T>((resolve,reject)=>{
    let settled=false
+   let hasResult=false
+   let lastResult:T
    const tx=db.transaction(STORE,mode)
    const store=tx.objectStore(STORE)
-   const success=(value:T)=>{if(!settled){settled=true;resolve(value)}}
+   // IDBRequest success fires BEFORE the write transaction commits. Wait
+   // for transaction.oncomplete before reporting that a key was saved.
+   const success=(value:T)=>{lastResult=value;hasResult=true}
    const fail=(error:Error)=>{if(!settled){settled=true;reject(error)}}
+   tx.oncomplete=()=>{
+    if(!settled){
+     settled=true
+     if(hasResult)resolve(lastResult)
+     else reject(Error('Secure storage did not finish saving.'))
+    }
+   }
    tx.onerror=()=>fail(tx.error??Error('Secure storage transaction failed.'))
    tx.onabort=()=>fail(tx.error??Error('Secure storage transaction cancelled.'))
    operation(store,success,fail)
