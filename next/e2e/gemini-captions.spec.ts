@@ -46,6 +46,10 @@ test('Gemini key is saved encrypted on this device, restores on reload, and is e
  await page.reload()
  await page.getByRole('button',{name:'Captions',exact:true}).click()
  await expect(panel.locator('[aria-label="Saved Gemini API key"]')).toBeVisible()
+ // Reload deliberately drops unsaved source media; reimporting confirms the
+ // saved key still works when a new editing session begins.
+ await page.locator('input[aria-label="Choose video audio or image files"]').setInputFiles(fixture('test-audio.wav'))
+ await expect(page.getByText(/placed 1 clips/)).toBeVisible({timeout:25000})
  await expect(panel.getByRole('button',{name:'Generate Sinhala AI captions'})).toBeEnabled()
  await panel.getByRole('button',{name:'Edit saved Gemini API key'}).click()
  await expect(panel.locator('input[aria-label="Gemini API key"]')).toHaveValue(MOCK_KEY)
