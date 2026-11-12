@@ -8,6 +8,10 @@ interface CaptionWorkspaceValue{
   setSourceClipId:Dispatch<SetStateAction<string>>
   reviewReady:boolean
   setReviewReady:Dispatch<SetStateAction<boolean>>
+  languageMode:'sinhala'|'original'
+  setLanguageMode:Dispatch<SetStateAction<'sinhala'|'original'>>
+  geminiKey:string
+  setGeminiKey:Dispatch<SetStateAction<string>>
   feedback:string
   setFeedback:Dispatch<SetStateAction<string>>
 }
@@ -17,7 +21,10 @@ export function CaptionWorkspaceProvider({children}:{children:ReactNode}){
  const [sourceClipId,setSourceClipId]=useState('')
  const [reviewReady,setReviewReady]=useState(false)
  const [feedback,setFeedback]=useState('')
- return <Context.Provider value={{draft,setDraft,sourceClipId,setSourceClipId,reviewReady,setReviewReady,feedback,setFeedback}}>{children}</Context.Provider>
+ const [languageMode,setLanguageMode]=useState<'sinhala'|'original'>('original')
+ // BYOK key intentionally held only in volatile React memory, never localStorage.
+ const [geminiKey,setGeminiKey]=useState('')
+ return <Context.Provider value={{draft,setDraft,sourceClipId,setSourceClipId,reviewReady,setReviewReady,languageMode,setLanguageMode,geminiKey,setGeminiKey,feedback,setFeedback}}>{children}</Context.Provider>
 }
 export function useCaptionWorkspace(){
  const value=useContext(Context)
