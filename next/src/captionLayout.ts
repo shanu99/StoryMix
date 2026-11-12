@@ -104,3 +104,18 @@ export function captionScriptIssue(text:string):string|null{
  if(value.split(/\s+/u).some(word=>Array.from(word).length>45))return 'An unusually long word was recognized. Review and split this caption.'
  return null
 }
+
+/** Gemini preserves the language actually spoken, including English and code
+ * switching. Check hallucination/overflow without requiring Sinhala script.
+ * Local Whisper continues to require Sinhala Unicode for Sinhala-only mode.
+ */
+export function captionQualityIssue(text:string,languageMode:'sinhala'|'original'='sinhala'):string|null{
+ if(languageMode==='sinhala')return captionScriptIssue(text)
+ const value=text.normalize('NFC').trim()
+ if(!value)return 'Caption text is empty.'
+ if(value.length>220)return 'Caption text is unusually long. Split or correct it.'
+ const compact=value.replace(/[\s.,!?।…‘’“”\-–—]/gu,'')
+ if(/(.)\1{7,}/u.test(compact)||/(.{2,5})\1{5,}/u.test(compact))return 'AI has repeated characters. Correct this caption.'
+ if(value.split(/\s+/u).some(word=>Array.from(word).length>48))return 'Unusually long word detected. Check the transcript.'
+ return null
+}
