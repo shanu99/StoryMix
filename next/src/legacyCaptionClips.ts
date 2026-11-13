@@ -3,7 +3,7 @@ import {encodeCaptionForFont,type LegacyEncoding} from './legacyCaptionEncoding'
 
 // This is presentation-only encoding: source Unicode is serialized into each
 // generated clip's name so project save/load and switching fonts remain reversible.
-const MARK='StoryMix Caption |'
+const MARK='AI Caption |'
 const enc=(s:string)=>btoa(Array.from(new TextEncoder().encode(s),n=>String.fromCharCode(n)).join(''))
 const dec=(s:string)=>new TextDecoder().decode(Uint8Array.from(atob(s),c=>c.charCodeAt(0)))
 export type CaptionGroup={id:string;index:number;source:string}
