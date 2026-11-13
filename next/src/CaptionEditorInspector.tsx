@@ -6,19 +6,28 @@ import {captionPresentation,wrapCaption,splitCaptionForDisplay,captionQualityIss
 import {sourceSecondsToTimelineFrame} from './sinhalaAsr'
 import {useCaptionWorkspace} from './CaptionWorkspaceState'
 import {writeSrt} from './subtitles'
+import '@fontsource/abhaya-libre/400.css'
+import '@fontsource/abhaya-libre/700.css'
+import '@fontsource-variable/noto-serif-sinhala'
+import '@fontsource/noto-sans-sinhala/700.css'
 
 const control:CSSProperties={padding:'9px 10px',border:'1px solid #38566c',borderRadius:8,background:'#112334',color:'#e8f6ff',width:'100%',fontFamily:'Noto Sans Sinhala, Inter, sans-serif',fontSize:12}
 const button:CSSProperties={padding:'10px 11px',border:'1px solid #385c74',borderRadius:8,background:'#18364a',color:'#e8f7ff',cursor:'pointer',fontSize:12}
 const secondary='#9eb8cc'
 type Style='clean'|'bold'|'cinematic'|'creator'|'highlight'|'minimal'
-const PRESETS:{id:Style;name:string;description:string;color:string;background:string;weight:'normal'|'bold'}[]=[
- {id:'clean',name:'Clean',description:'Simple & readable',color:'#ffffff',background:'#182c3b',weight:'normal'},
- {id:'bold',name:'Bold',description:'Social video',color:'#ffffff',background:'#182c3b',weight:'bold'},
- {id:'cinematic',name:'Cinema',description:'Warm film look',color:'#fff4df',background:'#1d2734',weight:'bold'},
- {id:'creator',name:'Creator',description:'Punchy yellow',color:'#ffe55b',background:'#142c36',weight:'bold'},
- {id:'highlight',name:'Pop',description:'Electric blue',color:'#79deff',background:'#0d2938',weight:'bold'},
- {id:'minimal',name:'Minimal',description:'Soft subtitles',color:'#ffffff',background:'#273139',weight:'normal'},
+type Preset={
+ id:Style;name:string;description:string;font:string;weight:'normal'|'bold';
+ fill:string;size:number;outline:number;outlineColor:string;shadow:number;shadowY:number;vertical:number;previewSize:number
+}
+const PRESETS:Preset[]=[
+ {id:'clean',name:'Studio',description:'Classic subtitle',font:'Noto Sans Sinhala',weight:'normal',fill:'#ffffff',size:.84,outline:.055,outlineColor:'#030b12',shadow:6,shadowY:2,vertical:0,previewSize:14},
+ {id:'bold',name:'Impact',description:'Big & punchy',font:'Noto Sans Sinhala',weight:'bold',fill:'#ffffff',size:1.20,outline:.14,outlineColor:'#02060c',shadow:10,shadowY:4,vertical:-.04,previewSize:19},
+ {id:'cinematic',name:'Cinema',description:'Film typography',font:'Abhaya Libre',weight:'bold',fill:'#fff6e7',size:1.15,outline:.035,outlineColor:'#281a13',shadow:12,shadowY:4,vertical:.025,previewSize:19},
+ {id:'creator',name:'Creator',description:'Bold social look',font:'Noto Sans Sinhala',weight:'bold',fill:'#ffe45d',size:1.16,outline:.14,outlineColor:'#100c13',shadow:9,shadowY:4,vertical:-.065,previewSize:19},
+ {id:'highlight',name:'Editorial',description:'Elegant Sinhala serif',font:'Noto Serif Sinhala Variable',weight:'bold',fill:'#b9eeff',size:1.04,outline:.045,outlineColor:'#0a2132',shadow:7,shadowY:2,vertical:.015,previewSize:17},
+ {id:'minimal',name:'Minimal',description:'Quiet & understated',font:'Abhaya Libre',weight:'normal',fill:'#ffffff',size:.83,outline:0,outlineColor:'#000000',shadow:3,shadowY:1,vertical:.06,previewSize:15},
 ]
+const preset=(id:Style):Preset=>PRESETS.find(p=>p.id===id)??PRESETS[0]
 
 function downloadSrt(text:string){
  const blob=new Blob([text],{type:'text/plain;charset=utf-8'})
@@ -29,27 +38,43 @@ function downloadSrt(text:string){
  setTimeout(()=>URL.revokeObjectURL(url),15000)
 }
 function ClipAppearance({style,setStyle}:{style:Style;setStyle:(style:Style)=>void}){
- return <div style={{display:'grid',gap:8}}>
-  <strong style={{fontSize:11,color:secondary}}>Caption style presets</strong>
-  <div role="group" aria-label="Caption style presets" style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:7}}>
-   {PRESETS.map(p=><button key={p.id} type="button" aria-label={p.name+' caption preset'} aria-pressed={style===p.id} onClick={()=>setStyle(p.id)}
-    style={{background:p.background,color:'#ecf7ff',border:'1px solid '+(style===p.id?'#16b9f5':'#385369'),borderRadius:9,padding:'10px 7px',display:'grid',gap:5,cursor:'pointer',textAlign:'center',boxShadow:style===p.id?'inset 0 0 0 1px #16b9f5':'none'}}>
-    <span lang="si" style={{fontFamily:'Noto Sans Sinhala, sans-serif',fontSize:17,fontWeight:p.weight,color:p.color,textShadow:p.id==='minimal'?'none':'0 2px 3px #000000',lineHeight:1.5}}>ආයුබෝවන්</span>
-    <strong style={{fontSize:11}}>{p.name}{style===p.id?' ✓':''}</strong><span style={{color:'#a9bac8',fontSize:9}}>{p.description}</span>
+ return <div style={{display:'grid',gap:10}}>
+  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+   <strong style={{fontSize:12,color:'#e7f5ff'}}>Caption looks</strong>
+   <span style={{fontSize:10,color:secondary}}>6 real typography styles</span>
+  </div>
+  <div role="group" aria-label="Caption style presets" style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:8}}>
+   {PRESETS.map(p=><button key={p.id} type="button" aria-label={p.name+' caption preset'} aria-pressed={style===p.id}
+    onClick={()=>setStyle(p.id)}
+    style={{background:'#162535',color:'#eaf5ff',border:'1px solid '+(style===p.id?'#16b9f5':'#355064'),borderRadius:10,padding:5,display:'grid',gap:6,cursor:'pointer',textAlign:'left',boxShadow:style===p.id?'0 0 0 1px #16b9f5':'none'}}>
+    <div aria-hidden="true" style={{height:74,borderRadius:6,background:'linear-gradient(145deg,#334957 0%,#152332 42%,#081018 100%)',
+      display:'flex',justifyContent:'center',alignItems:p.vertical<-.03?'center':'flex-end',overflow:'hidden',padding:'7px 3px 12px'}}>
+     <span lang="si" style={{fontFamily:p.font+', sans-serif',fontSize:p.previewSize,fontWeight:p.weight,color:p.fill,
+      lineHeight:1.45,whiteSpace:'nowrap',textShadow:'0 '+p.shadowY+'px '+Math.min(p.shadow,8)+'px #000, 0 1px 2px #000',
+      WebkitTextStroke:p.outline>0?(p.outline*12).toFixed(1)+'px '+p.outlineColor:'0px transparent'}}>
+      ආයුබෝවන්
+     </span>
+    </div>
+    <div style={{display:'flex',justifyContent:'space-between',gap:4,alignItems:'center',padding:'0 4px 4px'}}>
+     <span style={{display:'grid',gap:2}}>
+      <strong style={{fontSize:11,color:'#eaf5ff'}}>{p.name}</strong>
+      <span style={{fontSize:9,color:'#a8c0d0'}}>{p.description}</span>
+     </span>
+     {style===p.id&&<Check size={13} color="#16b9f5"/>}
+    </div>
    </button>)}
   </div>
  </div>
 }
 function stylePatch(style:Style,stage:{width:number;height:number},sourceSize?:{width:number;height:number}|null):Partial<Clip>{
  const layout=captionPresentation(stage,sourceSize)
- const fontSize=Math.round(layout.fontSize*(style==='clean'?.88:style==='cinematic'?.96:style==='minimal'?.84:style==='creator'?1.05:1))
- const color=PRESETS.find(p=>p.id===style)?.color??'#ffffff'
- const outlineWidth=style==='minimal'?0:style==='bold'||style==='creator'||style==='highlight'?Math.max(3,Math.round(fontSize*.10)):Math.max(2,Math.round(fontSize*.06))
+ const p=preset(style)
+ const fontSize=Math.max(18,Math.round(layout.fontSize*p.size))
  return {
-  fontFamily:'Noto Sans Sinhala',fontSize,fontWeight:style==='clean'||style==='minimal'?'normal':'bold',color,textAlign:'center',
-  textOutline:{color:'#071320',width:outlineWidth},
-  textShadow:{color:'#000000',blur:style==='minimal'?2:Math.max(5,Math.round(fontSize*.16)),offsetX:1,offsetY:style==='minimal'?1:3},
-  transform:{x:layout.x,y:layout.y,scale:1,rotation:0,anchor:{x:.5,y:.5}},
+  fontFamily:p.font,fontSize,fontWeight:p.weight,color:p.fill,textAlign:'center',
+  textOutline:{color:p.outlineColor,width:Math.round(fontSize*p.outline)},
+  textShadow:{color:'#000000',blur:p.shadow,offsetX:0,offsetY:p.shadowY},
+  transform:{x:layout.x,y:Math.max(.1,Math.min(.93,layout.y+p.vertical)),scale:1,rotation:0,anchor:{x:.5,y:.5}},
  }
 }
 
@@ -107,7 +132,7 @@ export function CaptionEditorInspector(){
       if(cardEnd<=cardStart)continue
       const patch=stylePatch(style,stage,contentSize)
       const created=engine.addClip({type:'text',trackId:target.id,name:'AI Caption',startFrame:cardStart,durationFrames:cardEnd-cardStart,
-       text:{content:cards[index],fontFamily:'Noto Sans Sinhala',fontSize:patch.fontSize,color:patch.color,textAlign:'center'}})
+       text:{content:cards[index],fontFamily:preset(style).font,fontSize:patch.fontSize,color:patch.color,textAlign:'center'}})
       engine.updateClip(created.id,target.id,patch)
       inserted++
      }
@@ -135,7 +160,7 @@ export function CaptionEditorInspector(){
   try{
    const layout=captionLayout,patch=stylePatch(style,stage,contentSize)
    const created=engine.addClip({type:'text',trackId:target.id,name:'Caption',startFrame:start,durationFrames:frames,
-    text:{content:wrapCaption(text.trim(),layout.maxCharactersPerLine),fontFamily:'Noto Sans Sinhala',fontSize:patch.fontSize,color:patch.color,textAlign:'center'}})
+    text:{content:wrapCaption(text.trim(),layout.maxCharactersPerLine),fontFamily:preset(style).font,fontSize:patch.fontSize,color:patch.color,textAlign:'center'}})
    engine.updateClip(created.id,target.id,patch)
    setText('');setError('');setFeedback('Caption added. Select it on the timeline for precise adjustments.')
   }catch(e){setError('Could not add caption: '+String(e))}
@@ -145,7 +170,24 @@ export function CaptionEditorInspector(){
   engine.batch(()=>targets.forEach(c=>engine.updateClip(c.id,c.trackId,stylePatch(style,stage,contentSize))),'Style all captions')
   setFeedback('Updated '+targets.length+' caption styles.')
  }
- if(!reviewReady&&selectedText)return <TextClipProperties/>
+ if(!reviewReady&&selectedText){
+  const isCaption=captionClips.some(c=>c.id===selectedText.id)
+  if(!isCaption)return <TextClipProperties/>
+  return <div style={{overflowY:'auto',height:'100%',display:'grid',alignContent:'start',gap:10,padding:'12px 0'}}>
+   <div style={{padding:'0 12px',display:'grid',gap:9}}>
+    <ClipAppearance style={style} setStyle={setStyle}/>
+    <button type="button" aria-label="Apply preset to selected caption" style={{...button,background:'#105f82'}}
+     onClick={()=>{engine.updateClip(selectedText.id,selectedText.trackId,stylePatch(style,stage,contentSize));setFeedback('Applied '+preset(style).name+' to selected caption.')}}>
+     <Paintbrush size={14} style={{verticalAlign:'middle'}}/> Apply to selected caption
+    </button>
+    <button type="button" aria-label="Apply selected preset to all captions" style={button} onClick={applyAll}>
+     Apply to all captions ({captionClips.length})
+    </button>
+    {feedback&&<span role="status" style={{fontSize:11,color:'#9ce4ff'}}>{feedback}</span>}
+   </div>
+   <TextClipProperties/>
+  </div>
+ }
  return <section aria-label="Caption editor inspector" style={{display:'grid',gap:13,padding:14,color:'#e7f5ff',fontSize:12,overflowY:'auto'}}>
   <div style={{display:'grid',gap:4}}>
    <strong style={{fontSize:14}}>{reviewReady?'Review Sinhala captions':'Caption editor'}</strong>
