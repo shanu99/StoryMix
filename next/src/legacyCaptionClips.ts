@@ -41,14 +41,14 @@ function fontWidth(context:CanvasRenderingContext2D,text:string,fontFamily:strin
  return context.measureText(text).width
 }
 export function applyCaptionFont({
- engine,clip,allClips,tracks,font,encoding,stageWidth,stageHeight
+ engine,clip,allClips,tracks,font,encoding,stageWidth,stageHeight,sourceOverride
 }:{
  engine:Engine;clip:Clip;allClips:Clip[];tracks:Track[];
- font:string;encoding:LegacyEncoding|null;stageWidth:number;stageHeight:number
+ font:string;encoding:LegacyEncoding|null;stageWidth:number;stageHeight:number;sourceOverride?:string
 }):{changed:boolean;unmapped:string[]}{
  const group=captionGroup(clip)
  const id=group?.id??crypto.randomUUID()
- const original=captionUnicode(clip)
+ const original=sourceOverride??captionUnicode(clip)
  const allGroup=group?allClips.filter(c=>captionGroup(c)?.id===id):[]
  const primary=allGroup.find(c=>captionGroup(c)?.index===0)??clip
  const siblings=allGroup.filter(c=>isExtra(c,id))
@@ -83,7 +83,7 @@ export function applyCaptionFont({
  }))
  const byRow=new Map<number,typeof segments>()
  for(const segment of segments)byRow.set(segment.row,[...(byRow.get(segment.row)??[]),segment])
- const baseX=primary.transform?.x??.5,baseY=primary.transform?.y??.8
+ const baseX=.5,baseY=.81
  const lineStep=(size*1.55)/stageHeight
  const patches:{content:string;fontFamily:string;x:number;y:number}[]=[]
  for(const [rowId,parts] of byRow){
