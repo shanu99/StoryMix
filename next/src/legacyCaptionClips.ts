@@ -41,10 +41,10 @@ function fontWidth(context:CanvasRenderingContext2D,text:string,fontFamily:strin
  return context.measureText(text).width
 }
 export function applyCaptionFont({
- engine,clip,allClips,tracks,font,encoding,stageWidth,stageHeight,sourceOverride
+ engine,clip,allClips,tracks,font,encoding,stageWidth,stageHeight,sourceOverride,baseY
 }:{
  engine:Engine;clip:Clip;allClips:Clip[];tracks:Track[];
- font:string;encoding:LegacyEncoding|null;stageWidth:number;stageHeight:number;sourceOverride?:string
+ font:string;encoding:LegacyEncoding|null;stageWidth:number;stageHeight:number;sourceOverride?:string;baseY?:number
 }):{changed:boolean;unmapped:string[]}{
  const group=captionGroup(clip)
  const id=group?.id??crypto.randomUUID()
@@ -55,7 +55,8 @@ export function applyCaptionFont({
  if(!encoding){
   engine.batch(()=>{
    for(const extra of siblings)engine.removeClip(extra.id,extra.trackId)
-   engine.updateClip(primary.id,primary.trackId,{name:'AI Caption',content:original,fontFamily:font})
+   engine.updateClip(primary.id,primary.trackId,{name:'AI Caption',content:original,fontFamily:font,
+    transform:{...primary.transform,x:.5,y:baseY??.81,scale:primary.transform?.scale??1,rotation:primary.transform?.rotation??0,anchor:{x:.5,y:.5}}})
   },'Restore Unicode caption')
   return {changed:true,unmapped:[]}
  }
@@ -83,7 +84,7 @@ export function applyCaptionFont({
  }))
  const byRow=new Map<number,typeof segments>()
  for(const segment of segments)byRow.set(segment.row,[...(byRow.get(segment.row)??[]),segment])
- const baseX=.5,baseY=.81
+ const baseX=.5,centerY=baseY??.81
  const lineStep=(size*1.55)/stageHeight
  const patches:{content:string;fontFamily:string;x:number;y:number}[]=[]
  for(const [rowId,parts] of byRow){
@@ -91,7 +92,7 @@ export function applyCaptionFont({
   let left=baseX*stageWidth-total/2
   for(const part of parts){
    const x=(left+part.width/2)/stageWidth
-   patches.push({content:part.text,fontFamily:part.fontFamily,x,y:baseY+(rowId-maxRow/2)*lineStep})
+   patches.push({content:part.text,fontFamily:part.fontFamily,x,y:centerY+(rowId-maxRow/2)*lineStep})
    left+=part.width
   }
  }
