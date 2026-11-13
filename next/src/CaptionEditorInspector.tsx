@@ -7,6 +7,8 @@ import {sourceSecondsToTimelineFrame} from './sinhalaAsr'
 import {useCaptionWorkspace} from './CaptionWorkspaceState'
 import {writeSrt} from './subtitles'
 import {importCustomCaptionFont,listCustomCaptionFonts,removeCustomCaptionFont,type CustomCaptionFont} from './customCaptionFonts'
+import {detectLegacyFamily,type LegacyEncoding} from './legacyCaptionEncoding'
+import {applyCaptionFont,captionGroup,captionUnicode,mainCaptionClips} from './legacyCaptionClips'
 import '@fontsource/abhaya-libre/400.css'
 import '@fontsource/abhaya-libre/700.css'
 import '@fontsource-variable/noto-serif-sinhala'
@@ -101,8 +103,9 @@ function FontLibrary({
    {fonts.some(f=>f.kind==='unicode')&&<optgroup label="My fonts · Unicode">
     {fonts.filter(f=>f.kind==='unicode').map(font=><option key={font.id} value={font.family}>{font.name}</option>)}
    </optgroup>}
-   {fonts.some(f=>f.kind==='legacy')&&<optgroup label="FM / Isiwara · Needs encoding conversion">
-    {fonts.filter(f=>f.kind==='legacy').map(font=><option key={font.id} value={font.family} disabled>{font.name} · legacy encoding</option>)}
+   {fonts.some(f=>f.kind==='legacy')&&<optgroup label="FM / Isiwara · Auto-render">
+    {fonts.filter(f=>f.kind==='legacy').map(font=><option key={font.id} value={font.family}
+     disabled={!detectLegacyFamily(font.name)}>{font.name}{detectLegacyFamily(font.name)?' · automatic':' · unknown mapping'}</option>)}
    </optgroup>}
   </select>
   <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
@@ -116,7 +119,7 @@ function FontLibrary({
     style={{...button,width:'auto',opacity:busy?.6:1}}>+ Import font</button>
   </div>
   {kind==='legacy'&&<span role="note" style={{fontSize:10,color:'#ffcb98',lineHeight:1.5}}>
-   FM / Isiwara fonts often use non-Unicode mappings. You can store them here, but applying to Unicode captions is disabled until encoding conversion is supported.
+   FM / Isiwara fonts automatically use StoryPad Studio encoding rules. Your original Unicode captions remain available for editing and SRT.
   </span>}
   {fonts.length>0&&<div style={{display:'grid',gap:5,maxHeight:160,overflowY:'auto'}}>
    {fonts.map(font=><div key={font.id} style={{display:'flex',gap:5,alignItems:'center',justifyContent:'space-between'}}>
@@ -149,6 +152,7 @@ export function CaptionEditorInspector(){
  const [fontKind,setFontKind]=useState<'unicode'|'legacy'>('unicode')
  const [fontBusy,setFontBusy]=useState(false)
  const [fontNotice,setFontNotice]=useState('')
+ const [,setSourceEditing]=useState('')
  useEffect(()=>{
   let active=true
   void listCustomCaptionFonts().then(fonts=>{if(active)setCustomFonts(fonts)})
@@ -158,6 +162,8 @@ export function CaptionEditorInspector(){
  const [error,setError]=useState('')
  const selectedText=Object.values(clips).flat().find(c=>selectedIds.has(c.id)&&c.type==='text')
  const captionClips=tracks.filter(t=>t.kind==='elements'&&/caption/i.test(t.name)).flatMap(t=>clips[t.id]??[]).filter(c=>c.type==='text')
+ const allCaptionClips=Object.values(clips).flat().filter(c=>c.type==='text'&&(/caption/i.test(c.name)||!!captionGroup(c)))
+ const captionTargets=mainCaptionClips(allCaptionClips)
  const edit=(index:number,patch:{text?:string;start?:number;end?:number})=>setDraft(rows=>rows.map((r,i)=>i===index?{...r,...patch}:r))
  const issues=draft.map(r=>captionQualityIssue(r.text,languageMode))
  const valid=draft.length>0&&issues.every(issue=>!issue)&&draft.every(r=>r.end>r.start)
@@ -180,6 +186,7 @@ export function CaptionEditorInspector(){
    const layout=captionLayout
    const sorted=[...draft].sort((a,b)=>a.start-b.start)
    let inserted=0
+   const insertedClips:Clip[]=[]
    engine.batch(()=>{
     const target=engine.addTrack('elements',{name:'AI Captions — Sinhala'})
     let last=source.startFrame
@@ -197,11 +204,14 @@ export function CaptionEditorInspector(){
       const created=engine.addClip({type:'text',trackId:target.id,name:'AI Caption',startFrame:cardStart,durationFrames:cardEnd-cardStart,
        text:{content:cards[index],fontFamily:fontForStyle(),fontSize:patch.fontSize,color:patch.color,textAlign:'center'}})
       engine.updateClip(created.id,target.id,patch)
+      insertedClips.push(created)
       inserted++
      }
      last=end
     }
    },'Insert generated Sinhala captions')
+   const encoding=currentFontEncoding()
+   if(encoding)for(const clip of insertedClips)changeCaptionFont(clip,fontForStyle(),encoding)
    setFeedback(inserted+' editable Sinhala captions added. Select a caption on the timeline to edit it here.')
    setReviewReady(false);setDraft([]);setError('')
   }catch(e){setError('Could not add captions: '+String(e))}
@@ -225,6 +235,8 @@ export function CaptionEditorInspector(){
    const created=engine.addClip({type:'text',trackId:target.id,name:'Caption',startFrame:start,durationFrames:frames,
     text:{content:wrapCaption(text.trim(),layout.maxCharactersPerLine),fontFamily:fontForStyle(),fontSize:patch.fontSize,color:patch.color,textAlign:'center'}})
    engine.updateClip(created.id,target.id,patch)
+   const encoding=currentFontEncoding()
+   if(encoding)changeCaptionFont(created,fontForStyle(),encoding)
    setText('');setError('');setFeedback('Caption added. Select it on the timeline for precise adjustments.')
   }catch(e){setError('Could not add caption: '+String(e))}
  }
@@ -233,35 +245,54 @@ export function CaptionEditorInspector(){
   ...stylePatch(chosen,stage,contentSize),
   ...(font?{fontFamily:font}:{})
  })
- const chooseFont=async(font:string)=>{
-  const stored=customFonts.find(f=>f.family===font)
-  if(stored?.kind==='legacy'){setFontNotice('Legacy font requires an FM / Isiwara text converter before it can be used on Unicode subtitles.');return}
+ const currentFontEncoding=(family=fontOverride):LegacyEncoding|null=>{
+  const found=customFonts.find(f=>f.family===family)
+  return found?.kind==='legacy'?detectLegacyFamily(found.name):null
+ }
+ const changeCaptionFont=(target:Clip,font:string,encoding:LegacyEncoding|null,override?:string)=>{
+  return applyCaptionFont({
+   engine,clip:target,allClips:Object.values(clips).flat(),tracks,
+   font,encoding,stageWidth:stage.width,stageHeight:stage.height,sourceOverride:override
+  })
+ }
+ const chooseFont=async(font:string,uploaded?:CustomCaptionFont)=>{
+  const stored=uploaded??customFonts.find(f=>f.family===font)
+  const encoding=stored?.kind==='legacy'?detectLegacyFamily(stored.name):null
+  if(stored?.kind==='legacy'&&!encoding){
+   setFontNotice('This font has an unknown legacy layout. Rename it FM or Isi and import again to identify the mapping.');return
+  }
+  const effective=font||preset(style).font
   setFontOverride(font)
-  if(!font){setFontNotice('Using the preset’s original font.');return}
-  setFontNotice('Font selected: '+(stored?.name??font))
-  try{await document.fonts.load('700 32px "'+font+'"','සිංහල Caption')}catch{/* fallback is browser-managed */}
-  const targets=(selectedText&&captionClips.some(c=>c.id===selectedText.id)?[selectedText]:captionClips)
-   .filter(c=>!engine.isTrackLocked(c.trackId))
-  if(targets.length)engine.batch(()=>targets.forEach(clip=>
-   engine.updateClip(clip.id,clip.trackId,{fontFamily:font})
-  ),'Change caption font')
+  try{await document.fonts.load('700 32px "'+effective+'"','සිංහල Caption')}
+  catch{/* system fallback remains available */}
+  const selectedGroup=selectedText?captionGroup(selectedText):null
+  const targets=selectedGroup
+   ?captionTargets.filter(c=>captionGroup(c)?.id===selectedGroup.id)
+   :selectedText&&captionTargets.some(c=>c.id===selectedText.id)?[selectedText]:captionTargets
+  let changed=0,unmapped=0
+  try{
+   for(const target of targets.filter(c=>!engine.isTrackLocked(c.trackId))){
+    const result=changeCaptionFont(target,effective,encoding)
+    if(result.changed)changed++
+    unmapped+=result.unmapped.length
+   }
+   setFontNotice((stored?.name??effective)+' applied to '+changed+' captions.'+(unmapped?' '+unmapped+' glyphs used Unicode fallback.':''))
+  }catch(e){setFontNotice(e instanceof Error?e.message:'Could not apply font to captions.')}
  }
  const uploadFont=async(file:File)=>{
   setFontBusy(true);setFontNotice('')
   try{
    const uploaded=await importCustomCaptionFont(file,fontKind)
    setCustomFonts(await listCustomCaptionFonts())
-   if(uploaded.kind==='unicode')await chooseFont(uploaded.family)
-   setFontNotice(uploaded.kind==='legacy'
-    ?'Legacy font saved on this device. Unicode caption conversion is still needed.'
-    :'Font imported and ready: '+uploaded.name)
+   await chooseFont(uploaded.family,uploaded)
+   setFontNotice('Font imported: '+uploaded.name+(uploaded.kind==='legacy'?' · auto-converted caption rendering':' · Unicode'))
   }catch(e){setFontNotice(e instanceof Error?e.message:'Font could not be imported.')}
   finally{setFontBusy(false)}
  }
  const deleteFont=async(id:string)=>{
   try{
    const removed=customFonts.find(f=>f.id===id)
-   if(removed?.family===fontOverride)setFontOverride('')
+   if(removed?.family===fontOverride)await chooseFont('')
    await removeCustomCaptionFont(id)
    setCustomFonts(await listCustomCaptionFonts())
    setFontNotice('Font removed from this browser.')
@@ -273,7 +304,7 @@ export function CaptionEditorInspector(){
  const choosePreset=async(next:Style)=>{
   setStyle(next)
   const targets=!reviewReady
-   ?(selectedText&&captionClips.some(c=>c.id===selectedText.id)?[selectedText]:captionClips).filter(c=>!engine.isTrackLocked(c.trackId))
+   ?(selectedText&&captionTargets.some(c=>c.id===selectedText.id)?[selectedText]:captionTargets).filter(c=>!engine.isTrackLocked(c.trackId))
    :[]
   if(!targets.length)return
   const nextPreset=preset(next)
@@ -281,15 +312,46 @@ export function CaptionEditorInspector(){
    // Ensure the font is available to the editor canvas BEFORE refreshing clips.
    await document.fonts.load((nextPreset.weight==='bold'?'700':'400')+' 32px "'+nextPreset.font+'"','ආයුබෝවන්')
   }catch{ /* Canvas can still use system fallbacks if font loading is blocked. */ }
-  engine.batch(()=>targets.forEach(c=>engine.updateClip(c.id,c.trackId,patchForStyle(next))),'Apply caption look: '+nextPreset.name)
+  engine.batch(()=>targets.forEach(c=>{
+   const patch=patchForStyle(next)
+   if(captionGroup(c))delete patch.fontFamily
+   engine.updateClip(c.id,c.trackId,patch)
+  }),'Apply caption look: '+nextPreset.name)
   setFeedback('Applied '+nextPreset.name+' to '+targets.length+' caption'+(targets.length===1?'':'s')+'.')
  }
  const applyAll=()=>{
-  const targets=captionClips.filter(c=>!engine.isTrackLocked(c.trackId))
-  engine.batch(()=>targets.forEach(c=>engine.updateClip(c.id,c.trackId,patchForStyle(style))),'Style all captions')
+  const targets=captionTargets.filter(c=>!engine.isTrackLocked(c.trackId))
+  engine.batch(()=>targets.forEach(c=>{
+   const patch=patchForStyle(style)
+   if(captionGroup(c))delete patch.fontFamily
+   engine.updateClip(c.id,c.trackId,patch)
+  }),'Style all captions')
   setFeedback('Updated '+targets.length+' caption styles.')
  }
  if(!reviewReady&&selectedText){
+  const selectedGroup=captionGroup(selectedText)
+  if(selectedGroup){
+   const main=captionTargets.find(c=>captionGroup(c)?.id===selectedGroup.id)??selectedText
+   const original=captionUnicode(main)
+   return <section aria-label="Caption editor inspector" style={{display:'grid',gap:12,padding:14,overflowY:'auto',color:'#e7f5ff'}}>
+    <strong>Caption typography</strong>
+    <ClipAppearance style={style} setStyle={next=>{void choosePreset(next)}}/>
+    {fontLibrary}
+    <label style={{display:'grid',gap:7,fontSize:11,color:secondary}}>Caption text · Unicode original
+     <textarea key={original} aria-label="Edit original Unicode caption" defaultValue={original}
+      onChange={e=>setSourceEditing(e.currentTarget.value)}
+      onBlur={e=>{
+       const updated=e.currentTarget.value.normalize('NFC').trim()
+       if(!updated||updated===original)return
+       try{changeCaptionFont(main,fontForStyle(),currentFontEncoding(),updated);setSourceEditing('');setFontNotice('Caption updated without losing Unicode.')}
+       catch(err){setFontNotice(String(err))}
+      }} rows={3} style={{...control,resize:'vertical'}}/>
+    </label>
+    <div style={{fontSize:10,color:secondary}}>Font changes are automatic. English words use a separate Unicode text layer.</div>
+    <button type="button" onClick={()=>{void chooseFont('')}} style={button}>Use Unicode font instead</button>
+   </section>
+  }
+
   const isCaption=captionClips.some(c=>c.id===selectedText.id)
   if(!isCaption)return <TextClipProperties/>
   return <div style={{overflowY:'auto',height:'100%',display:'grid',alignContent:'start',gap:10,padding:'12px 0'}}>
