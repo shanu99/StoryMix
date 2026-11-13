@@ -208,5 +208,29 @@ test('caption typography includes distinct Sinhala fonts and import controls',as
  await expect(font).toHaveValue('Gemunu Libre')
  await expect(panel.getByRole('button',{name:'Import caption font'})).toBeVisible()
  await panel.getByRole('combobox',{name:'Imported font encoding'}).selectOption('legacy')
- await expect(panel.getByText(/applying to Unicode captions is disabled/)).toBeVisible()
+ await expect(panel.getByText(/automatically use StoryPad Studio encoding rules/)).toBeVisible()
+})
+
+test('StoryPad converters preserve mixed Sinhala-English while encoding just Sinhala glyphs',async({page})=>{
+ await page.goto('/')
+ const actual=await page.evaluate(async()=>{
+  const m=await import('/src/legacyCaptionEncoding.ts')
+  const source='මම video එක edit කරනවා'
+  const fm=m.encodeCaptionForFont(source,'fm')
+  const isi=m.encodeCaptionForFont(source,'isiwara')
+  return {
+   fm,fmName:m.detectLegacyFamily('FM-Abhaya-x.ttf'),
+   isi,isiName:m.detectLegacyFamily('IsiGurulugomi.ttf'),
+   unknown:m.detectLegacyFamily('MyRandomFont.ttf'),
+  }
+ })
+ expect(actual.fmName).toBe('fm')
+ expect(actual.isiName).toBe('isiwara')
+ expect(actual.unknown).toBeNull()
+ expect(actual.fm.complete).toBeTruthy()
+ expect(actual.fm.runs.map((r:{source:string})=>r.source).join('')).toBe('මම video එක edit කරනවා')
+ expect(actual.fm.runs.some((r:{kind:string;text:string})=>r.kind==='legacy'&&r.text.includes('uu'))).toBeTruthy()
+ expect(actual.fm.runs.some((r:{kind:string;text:string})=>r.kind==='unicode'&&r.text.includes('video'))).toBeTruthy()
+ expect(actual.isi.runs.some((r:{kind:string;text:string})=>r.kind==='unicode'&&r.text.includes('edit'))).toBeTruthy()
+ expect(actual.isi.runs.some((r:{kind:string;text:string})=>r.kind==='legacy'&&r.text.length>0)).toBeTruthy()
 })
