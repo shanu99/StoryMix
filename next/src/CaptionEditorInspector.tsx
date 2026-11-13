@@ -1,4 +1,4 @@
-import {useState,type CSSProperties} from 'react'
+import {useEffect,useRef,useState,type CSSProperties} from 'react'
 import {Check,Download,ChevronDown,Plus,Paintbrush,AlertCircle} from 'lucide-react'
 import {useTimelineEngine,useTracksStore,useSelectionStore,usePlaybackStore,useMediaLibraryStore,type Clip} from '@elah/editor'
 import {TextClipProperties} from './TextClipProperties'
@@ -6,6 +6,7 @@ import {captionPresentation,wrapCaption,splitCaptionForDisplay,captionQualityIss
 import {sourceSecondsToTimelineFrame} from './sinhalaAsr'
 import {useCaptionWorkspace} from './CaptionWorkspaceState'
 import {writeSrt} from './subtitles'
+import {importCustomCaptionFont,listCustomCaptionFonts,removeCustomCaptionFont,type CustomCaptionFont} from './customCaptionFonts'
 import '@fontsource/abhaya-libre/400.css'
 import '@fontsource/abhaya-libre/700.css'
 import '@fontsource-variable/noto-serif-sinhala'
@@ -80,6 +81,55 @@ function stylePatch(style:Style,stage:{width:number;height:number},sourceSize?:{
  }
 }
 
+function FontLibrary({
+ fonts,choice,onChoose,onUpload,onDelete,busy,notice,kind,onKind
+}:{
+ fonts:CustomCaptionFont[];choice:string;onChoose:(font:string)=>void;
+ onUpload:(file:File)=>void;onDelete:(id:string)=>void;
+ busy:boolean;notice:string;kind:'unicode'|'legacy';onKind:(kind:'unicode'|'legacy')=>void
+}){
+ const fileInput=useRef<HTMLInputElement>(null)
+ return <div style={{display:'grid',gap:9,padding:11,background:'#112637',border:'1px solid #304e63',borderRadius:10}}>
+  <strong style={{fontSize:12}}>Sinhala Font Library</strong>
+  <span style={{fontSize:10,color:secondary}}>Choose a real typeface, not just a different color.</span>
+  <select aria-label="Caption font family" value={choice} onChange={e=>onChoose(e.target.value)} style={control}>
+   <option value="">Use selected preset font</option>
+   <optgroup label="Unicode · Ready to use">
+    {['Noto Sans Sinhala','Gemunu Libre','Yaldevi','Abhaya Libre','Noto Serif Sinhala Variable'].map(font=>
+     <option value={font} key={font}>{font}</option>)}
+   </optgroup>
+   {fonts.some(f=>f.kind==='unicode')&&<optgroup label="My fonts · Unicode">
+    {fonts.filter(f=>f.kind==='unicode').map(font=><option key={font.id} value={font.family}>{font.name}</option>)}
+   </optgroup>}
+   {fonts.some(f=>f.kind==='legacy')&&<optgroup label="FM / Isiwara · Needs encoding conversion">
+    {fonts.filter(f=>f.kind==='legacy').map(font=><option key={font.id} value={font.family} disabled>{font.name} · legacy encoding</option>)}
+   </optgroup>}
+  </select>
+  <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+   <select aria-label="Imported font encoding" value={kind} onChange={e=>onKind(e.target.value as 'unicode'|'legacy')} style={{...control,width:'auto',flex:1}}>
+    <option value="unicode">Unicode font</option>
+    <option value="legacy">FM / Isiwara (legacy)</option>
+   </select>
+   <input ref={fileInput} type="file" accept=".ttf,.otf,.woff,.woff2" aria-label="Upload font file"
+    style={{display:'none'}} onChange={e=>{const file=e.currentTarget.files?.[0];if(file)onUpload(file);e.currentTarget.value=''}}/>
+   <button type="button" disabled={busy} aria-label="Import caption font" onClick={()=>fileInput.current?.click()}
+    style={{...button,width:'auto',opacity:busy?.6:1}}>+ Import font</button>
+  </div>
+  {kind==='legacy'&&<span role="note" style={{fontSize:10,color:'#ffcb98',lineHeight:1.5}}>
+   FM / Isiwara fonts often use non-Unicode mappings. You can store them here, but applying to Unicode captions is disabled until encoding conversion is supported.
+  </span>}
+  {fonts.length>0&&<div style={{display:'grid',gap:5,maxHeight:160,overflowY:'auto'}}>
+   {fonts.map(font=><div key={font.id} style={{display:'flex',gap:5,alignItems:'center',justifyContent:'space-between'}}>
+    <span style={{fontFamily:font.family+', sans-serif',color:'#e9faff',fontSize:12,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}} title={font.name}>
+     {font.name} {font.kind==='legacy'?'· Legacy':''}
+    </span>
+    <button type="button" aria-label={'Remove font '+font.name} onClick={()=>onDelete(font.id)}
+     style={{...button,padding:'4px 7px',fontSize:10}}>Remove</button>
+   </div>)}
+  </div>}
+  {notice&&<output role="status" style={{fontSize:10,color:'#a1e6ff',lineHeight:1.5}}>{notice}</output>}
+ </div>
+}
 export function CaptionEditorInspector(){
  const engine=useTimelineEngine()
  const tracks=useTracksStore(s=>s.tracks)
@@ -94,6 +144,17 @@ export function CaptionEditorInspector(){
  const [text,setText]=useState('')
  const [seconds,setSeconds]=useState(3)
  const [style,setStyle]=useState<Style>('bold')
+ const [customFonts,setCustomFonts]=useState<CustomCaptionFont[]>([])
+ const [fontOverride,setFontOverride]=useState('')
+ const [fontKind,setFontKind]=useState<'unicode'|'legacy'>('unicode')
+ const [fontBusy,setFontBusy]=useState(false)
+ const [fontNotice,setFontNotice]=useState('')
+ useEffect(()=>{
+  let active=true
+  void listCustomCaptionFonts().then(fonts=>{if(active)setCustomFonts(fonts)})
+   .catch(()=>{if(active)setFontNotice('Browser font storage unavailable; built-in fonts still work.')})
+  return()=>{active=false}
+ },[])
  const [error,setError]=useState('')
  const selectedText=Object.values(clips).flat().find(c=>selectedIds.has(c.id)&&c.type==='text')
  const captionClips=tracks.filter(t=>t.kind==='elements'&&/caption/i.test(t.name)).flatMap(t=>clips[t.id]??[]).filter(c=>c.type==='text')
@@ -132,9 +193,9 @@ export function CaptionEditorInspector(){
       const cardStart=start+Math.round(span*index/cards.length)
       const cardEnd=start+Math.round(span*(index+1)/cards.length)
       if(cardEnd<=cardStart)continue
-      const patch=stylePatch(style,stage,contentSize)
+      const patch=patchForStyle(style)
       const created=engine.addClip({type:'text',trackId:target.id,name:'AI Caption',startFrame:cardStart,durationFrames:cardEnd-cardStart,
-       text:{content:cards[index],fontFamily:preset(style).font,fontSize:patch.fontSize,color:patch.color,textAlign:'center'}})
+       text:{content:cards[index],fontFamily:fontForStyle(),fontSize:patch.fontSize,color:patch.color,textAlign:'center'}})
       engine.updateClip(created.id,target.id,patch)
       inserted++
      }
@@ -160,13 +221,55 @@ export function CaptionEditorInspector(){
   let target=tracks.find(t=>t.kind==='elements'&&/caption/i.test(t.name)&&!t.locked&&(clips[t.id]??[]).every(c=>c.startFrame+c.durationFrames<=start||c.startFrame>=start+frames))
   if(!target)target=engine.addTrack('elements',{name:'Captions'})
   try{
-   const layout=captionLayout,patch=stylePatch(style,stage,contentSize)
+   const layout=captionLayout,patch=patchForStyle(style)
    const created=engine.addClip({type:'text',trackId:target.id,name:'Caption',startFrame:start,durationFrames:frames,
-    text:{content:wrapCaption(text.trim(),layout.maxCharactersPerLine),fontFamily:preset(style).font,fontSize:patch.fontSize,color:patch.color,textAlign:'center'}})
+    text:{content:wrapCaption(text.trim(),layout.maxCharactersPerLine),fontFamily:fontForStyle(),fontSize:patch.fontSize,color:patch.color,textAlign:'center'}})
    engine.updateClip(created.id,target.id,patch)
    setText('');setError('');setFeedback('Caption added. Select it on the timeline for precise adjustments.')
   }catch(e){setError('Could not add caption: '+String(e))}
  }
+ const fontForStyle=()=>fontOverride||preset(style).font
+ const patchForStyle=(chosen:Style,font=fontOverride):Partial<Clip>=>({
+  ...stylePatch(chosen,stage,contentSize),
+  ...(font?{fontFamily:font}:{})
+ })
+ const chooseFont=async(font:string)=>{
+  const stored=customFonts.find(f=>f.family===font)
+  if(stored?.kind==='legacy'){setFontNotice('Legacy font requires an FM / Isiwara text converter before it can be used on Unicode subtitles.');return}
+  setFontOverride(font)
+  if(!font){setFontNotice('Using the preset’s original font.');return}
+  setFontNotice('Font selected: '+(stored?.name??font))
+  try{await document.fonts.load('700 32px "'+font+'"','සිංහල Caption')}catch{/* fallback is browser-managed */}
+  const targets=(selectedText&&captionClips.some(c=>c.id===selectedText.id)?[selectedText]:captionClips)
+   .filter(c=>!engine.isTrackLocked(c.trackId))
+  if(targets.length)engine.batch(()=>targets.forEach(clip=>
+   engine.updateClip(clip.id,clip.trackId,{fontFamily:font})
+  ),'Change caption font')
+ }
+ const uploadFont=async(file:File)=>{
+  setFontBusy(true);setFontNotice('')
+  try{
+   const uploaded=await importCustomCaptionFont(file,fontKind)
+   setCustomFonts(await listCustomCaptionFonts())
+   if(uploaded.kind==='unicode')await chooseFont(uploaded.family)
+   setFontNotice(uploaded.kind==='legacy'
+    ?'Legacy font saved on this device. Unicode caption conversion is still needed.'
+    :'Font imported and ready: '+uploaded.name)
+  }catch(e){setFontNotice(e instanceof Error?e.message:'Font could not be imported.')}
+  finally{setFontBusy(false)}
+ }
+ const deleteFont=async(id:string)=>{
+  try{
+   const removed=customFonts.find(f=>f.id===id)
+   if(removed?.family===fontOverride)setFontOverride('')
+   await removeCustomCaptionFont(id)
+   setCustomFonts(await listCustomCaptionFonts())
+   setFontNotice('Font removed from this browser.')
+  }catch(e){setFontNotice(e instanceof Error?e.message:'Could not remove font.')}
+ }
+ const fontLibrary=<FontLibrary fonts={customFonts} choice={fontOverride}
+  onChoose={value=>{void chooseFont(value)}} onUpload={file=>{void uploadFont(file)}}
+  onDelete={id=>{void deleteFont(id)}} busy={fontBusy} notice={fontNotice} kind={fontKind} onKind={setFontKind}/>
  const choosePreset=async(next:Style)=>{
   setStyle(next)
   const targets=!reviewReady
@@ -178,12 +281,12 @@ export function CaptionEditorInspector(){
    // Ensure the font is available to the editor canvas BEFORE refreshing clips.
    await document.fonts.load((nextPreset.weight==='bold'?'700':'400')+' 32px "'+nextPreset.font+'"','ආයුබෝවන්')
   }catch{ /* Canvas can still use system fallbacks if font loading is blocked. */ }
-  engine.batch(()=>targets.forEach(c=>engine.updateClip(c.id,c.trackId,stylePatch(next,stage,contentSize))),'Apply caption look: '+nextPreset.name)
+  engine.batch(()=>targets.forEach(c=>engine.updateClip(c.id,c.trackId,patchForStyle(next))),'Apply caption look: '+nextPreset.name)
   setFeedback('Applied '+nextPreset.name+' to '+targets.length+' caption'+(targets.length===1?'':'s')+'.')
  }
  const applyAll=()=>{
   const targets=captionClips.filter(c=>!engine.isTrackLocked(c.trackId))
-  engine.batch(()=>targets.forEach(c=>engine.updateClip(c.id,c.trackId,stylePatch(style,stage,contentSize))),'Style all captions')
+  engine.batch(()=>targets.forEach(c=>engine.updateClip(c.id,c.trackId,patchForStyle(style))),'Style all captions')
   setFeedback('Updated '+targets.length+' caption styles.')
  }
  if(!reviewReady&&selectedText){
@@ -192,8 +295,9 @@ export function CaptionEditorInspector(){
   return <div style={{overflowY:'auto',height:'100%',display:'grid',alignContent:'start',gap:10,padding:'12px 0'}}>
    <div style={{padding:'0 12px',display:'grid',gap:9}}>
     <ClipAppearance style={style} setStyle={next=>{void choosePreset(next)}}/>
+    {fontLibrary}
     <button type="button" aria-label="Apply preset to selected caption" style={{...button,background:'#105f82'}}
-     onClick={()=>{engine.updateClip(selectedText.id,selectedText.trackId,stylePatch(style,stage,contentSize));setFeedback('Applied '+preset(style).name+' to selected caption.')}}>
+     onClick={()=>{engine.updateClip(selectedText.id,selectedText.trackId,patchForStyle(style));setFeedback('Applied '+preset(style).name+' to selected caption.')}}>
      <Paintbrush size={14} style={{verticalAlign:'middle'}}/> Apply to selected caption
     </button>
     <button type="button" aria-label="Apply selected preset to all captions" style={button} onClick={applyAll}>
@@ -210,6 +314,7 @@ export function CaptionEditorInspector(){
    <span style={{fontSize:11,color:secondary}}>{stage.width} × {stage.height} · Captions fit the visible video, not black bars</span>
   </div>
   <ClipAppearance style={style} setStyle={next=>{void choosePreset(next)}}/>
+  {fontLibrary}
   {!reviewReady&&captionClips.length>0&&<button type="button" aria-label="Apply selected preset to all captions" style={{...button,background:'#105f82',fontWeight:700}} onClick={applyAll}><Paintbrush size={14} style={{verticalAlign:'middle'}}/> Apply to all captions ({captionClips.length})</button>}
   {reviewReady&&<>
    <div style={{fontSize:11,color:secondary}}>Correct recognized words here. The timeline and text styling stay separate from caption generation.</div>
