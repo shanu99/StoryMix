@@ -42,21 +42,30 @@ const isiPairs=isiData as [string,string][]
 const isiEncodeTrie=trie(isiPairs.filter(([key])=>/[\u0d80-\u0dff]/u.test(key)))
 function encodeSinhalaWord(input:string,encoding:LegacyEncoding):CaptionFontRun[]{
  const root=encoding==='fm'?fmEncodeTrie:isiEncodeTrie
+ // Same optimal-partition priority as StoryPad Studio's FM encoder:
+ // minimize unmapped Sinhala code units before optimizing segment length.
+ type Step={miss:number;steps:number;end:number;kind:'legacy'|'unicode';text:string}
+ const best:Step[]=new Array(input.length+1)
+ best[input.length]={miss:0,steps:0,end:input.length,kind:'unicode',text:''}
+ for(let i=input.length-1;i>=0;i--){
+  const fallback=best[i+1]
+  best[i]={miss:fallback.miss+1,steps:fallback.steps+1,end:i+1,kind:'unicode',text:input[i]}
+  let node:Record<string,unknown>|undefined=root
+  for(let j=i;j<input.length;j++){
+   node=node?.[input[j]] as Record<string,unknown>|undefined
+   if(!node)break
+   if(typeof node.value!=='string')continue
+   const next=best[j+1],current=best[i]
+   if(next.miss<current.miss||(next.miss===current.miss&&next.steps+1<current.steps))
+    best[i]={miss:next.miss,steps:next.steps+1,end:j+1,kind:'legacy',text:node.value}
+  }
+ }
  const pieces:CaptionFontRun[]=[]
  for(let i=0;i<input.length;){
-  const match=longest(root,input,i)
-  if(match){
-   const source=input.slice(i,match.end)
-   const preceding=pieces.at(-1)
-   if(preceding?.kind==='legacy'){preceding.text+=match.value;preceding.source+=source}
-   else pieces.push({kind:'legacy',text:match.value,source})
-   i=match.end
-  }else{
-   const next=input[i++]
-   const preceding=pieces.at(-1)
-   if(preceding?.kind==='unicode'){preceding.text+=next;preceding.source+=next}
-   else pieces.push({kind:'unicode',text:next,source:next})
-  }
+  const step=best[i],source=input.slice(i,step.end),prev=pieces.at(-1)
+  if(prev?.kind===step.kind){prev.text+=step.text;prev.source+=source}
+  else pieces.push({kind:step.kind,text:step.text,source})
+  i=step.end
  }
  return pieces
 }
