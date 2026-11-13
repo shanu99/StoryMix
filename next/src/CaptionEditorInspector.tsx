@@ -11,7 +11,7 @@ import '@fontsource/abhaya-libre/700.css'
 import '@fontsource-variable/noto-serif-sinhala'
 import '@fontsource/noto-sans-sinhala/700.css'
 import '@fontsource/gemunu-libre/700.css'
-import '@fontsource/yaldevi/600.css'
+import '@fontsource/yaldevi/700.css'
 
 const control:CSSProperties={padding:'9px 10px',border:'1px solid #38566c',borderRadius:8,background:'#112334',color:'#e8f6ff',width:'100%',fontFamily:'Noto Sans Sinhala, Inter, sans-serif',fontSize:12}
 const button:CSSProperties={padding:'10px 11px',border:'1px solid #385c74',borderRadius:8,background:'#18364a',color:'#e8f7ff',cursor:'pointer',fontSize:12}
@@ -43,7 +43,7 @@ function ClipAppearance({style,setStyle}:{style:Style;setStyle:(style:Style)=>vo
  return <div style={{display:'grid',gap:10}}>
   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
    <strong style={{fontSize:12,color:'#e7f5ff'}}>Caption looks</strong>
-   <span style={{fontSize:10,color:secondary}}>6 real typography styles</span>
+   <span style={{fontSize:10,color:secondary}}>Tap a look to apply instantly</span>
   </div>
   <div role="group" aria-label="Caption style presets" style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:8}}>
    {PRESETS.map(p=><button key={p.id} type="button" aria-label={p.name+' caption preset'} aria-pressed={style===p.id}
@@ -167,6 +167,20 @@ export function CaptionEditorInspector(){
    setText('');setError('');setFeedback('Caption added. Select it on the timeline for precise adjustments.')
   }catch(e){setError('Could not add caption: '+String(e))}
  }
+ const choosePreset=async(next:Style)=>{
+  setStyle(next)
+  const targets=!reviewReady
+   ?(selectedText&&captionClips.some(c=>c.id===selectedText.id)?[selectedText]:captionClips).filter(c=>!engine.isTrackLocked(c.trackId))
+   :[]
+  if(!targets.length)return
+  const nextPreset=preset(next)
+  try{
+   // Ensure the font is available to the editor canvas BEFORE refreshing clips.
+   await document.fonts.load((nextPreset.weight==='bold'?'700':'400')+' 32px "'+nextPreset.font+'"','ආයුබෝවන්')
+  }catch{ /* Canvas can still use system fallbacks if font loading is blocked. */ }
+  engine.batch(()=>targets.forEach(c=>engine.updateClip(c.id,c.trackId,stylePatch(next,stage,contentSize))),'Apply caption look: '+nextPreset.name)
+  setFeedback('Applied '+nextPreset.name+' to '+targets.length+' caption'+(targets.length===1?'':'s')+'.')
+ }
  const applyAll=()=>{
   const targets=captionClips.filter(c=>!engine.isTrackLocked(c.trackId))
   engine.batch(()=>targets.forEach(c=>engine.updateClip(c.id,c.trackId,stylePatch(style,stage,contentSize))),'Style all captions')
@@ -177,7 +191,7 @@ export function CaptionEditorInspector(){
   if(!isCaption)return <TextClipProperties/>
   return <div style={{overflowY:'auto',height:'100%',display:'grid',alignContent:'start',gap:10,padding:'12px 0'}}>
    <div style={{padding:'0 12px',display:'grid',gap:9}}>
-    <ClipAppearance style={style} setStyle={setStyle}/>
+    <ClipAppearance style={style} setStyle={next=>{void choosePreset(next)}}/>
     <button type="button" aria-label="Apply preset to selected caption" style={{...button,background:'#105f82'}}
      onClick={()=>{engine.updateClip(selectedText.id,selectedText.trackId,stylePatch(style,stage,contentSize));setFeedback('Applied '+preset(style).name+' to selected caption.')}}>
      <Paintbrush size={14} style={{verticalAlign:'middle'}}/> Apply to selected caption
@@ -195,7 +209,7 @@ export function CaptionEditorInspector(){
    <strong style={{fontSize:14}}>{reviewReady?'Review Sinhala captions':'Caption editor'}</strong>
    <span style={{fontSize:11,color:secondary}}>{stage.width} × {stage.height} · Captions fit the visible video, not black bars</span>
   </div>
-  <ClipAppearance style={style} setStyle={setStyle}/>
+  <ClipAppearance style={style} setStyle={next=>{void choosePreset(next)}}/>
   {!reviewReady&&captionClips.length>0&&<button type="button" aria-label="Apply selected preset to all captions" style={{...button,background:'#105f82',fontWeight:700}} onClick={applyAll}><Paintbrush size={14} style={{verticalAlign:'middle'}}/> Apply to all captions ({captionClips.length})</button>}
   {reviewReady&&<>
    <div style={{fontSize:11,color:secondary}}>Correct recognized words here. The timeline and text styling stay separate from caption generation.</div>
