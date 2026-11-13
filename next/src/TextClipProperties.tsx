@@ -13,7 +13,7 @@ import {
 import { sectionLabel, theme } from './theme'
 import {captionScriptIssue} from './captionLayout'
 
-const FONTS = ['Noto Sans Sinhala', 'Iskoola Pota', 'sans-serif', 'serif', 'monospace', 'Georgia', 'Impact']
+const FONTS = ['Noto Sans Sinhala', 'Gemunu Libre', 'Yaldevi', 'Abhaya Libre', 'Noto Serif Sinhala Variable', 'Iskoola Pota', 'sans-serif', 'serif', 'monospace', 'Georgia', 'Impact']
 
 const inputStyle: CSSProperties = {
   flex: 1,
