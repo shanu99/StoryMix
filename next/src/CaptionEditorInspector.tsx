@@ -10,7 +10,15 @@ import {writeSrt} from './subtitles'
 const control:CSSProperties={padding:'9px 10px',border:'1px solid #38566c',borderRadius:8,background:'#112334',color:'#e8f6ff',width:'100%',fontFamily:'Noto Sans Sinhala, Inter, sans-serif',fontSize:12}
 const button:CSSProperties={padding:'10px 11px',border:'1px solid #385c74',borderRadius:8,background:'#18364a',color:'#e8f7ff',cursor:'pointer',fontSize:12}
 const secondary='#9eb8cc'
-type Style='clean'|'bold'|'cinematic'
+type Style='clean'|'bold'|'cinematic'|'creator'|'highlight'|'minimal'
+const PRESETS:{id:Style;name:string;description:string;color:string;background:string;weight:'normal'|'bold'}[]=[
+ {id:'clean',name:'Clean',description:'Simple & readable',color:'#ffffff',background:'#182c3b',weight:'normal'},
+ {id:'bold',name:'Bold',description:'Social video',color:'#ffffff',background:'#182c3b',weight:'bold'},
+ {id:'cinematic',name:'Cinema',description:'Warm film look',color:'#fff4df',background:'#1d2734',weight:'bold'},
+ {id:'creator',name:'Creator',description:'Punchy yellow',color:'#ffe55b',background:'#142c36',weight:'bold'},
+ {id:'highlight',name:'Pop',description:'Electric blue',color:'#79deff',background:'#0d2938',weight:'bold'},
+ {id:'minimal',name:'Minimal',description:'Soft subtitles',color:'#ffffff',background:'#273139',weight:'normal'},
+]
 
 function downloadSrt(text:string){
  const blob=new Blob([text],{type:'text/plain;charset=utf-8'})
@@ -21,19 +29,26 @@ function downloadSrt(text:string){
  setTimeout(()=>URL.revokeObjectURL(url),15000)
 }
 function ClipAppearance({style,setStyle}:{style:Style;setStyle:(style:Style)=>void}){
- return <label style={{display:'grid',gap:6,fontSize:11,color:secondary}}>Caption style
-  <select aria-label="Caption style preset" value={style} style={control} onChange={e=>setStyle(e.target.value as Style)}>
-   <option value="clean">Clean white</option><option value="bold">Bold mobile</option><option value="cinematic">Cinematic</option>
-  </select>
- </label>
+ return <div style={{display:'grid',gap:8}}>
+  <strong style={{fontSize:11,color:secondary}}>Caption style presets</strong>
+  <div role="group" aria-label="Caption style presets" style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:7}}>
+   {PRESETS.map(p=><button key={p.id} type="button" aria-label={p.name+' caption preset'} aria-pressed={style===p.id} onClick={()=>setStyle(p.id)}
+    style={{background:p.background,color:'#ecf7ff',border:'1px solid '+(style===p.id?'#16b9f5':'#385369'),borderRadius:9,padding:'10px 7px',display:'grid',gap:5,cursor:'pointer',textAlign:'center',boxShadow:style===p.id?'inset 0 0 0 1px #16b9f5':'none'}}>
+    <span lang="si" style={{fontFamily:'Noto Sans Sinhala, sans-serif',fontSize:17,fontWeight:p.weight,color:p.color,textShadow:p.id==='minimal'?'none':'0 2px 3px #000000',lineHeight:1.5}}>ආයුබෝවන්</span>
+    <strong style={{fontSize:11}}>{p.name}{style===p.id?' ✓':''}</strong><span style={{color:'#a9bac8',fontSize:9}}>{p.description}</span>
+   </button>)}
+  </div>
+ </div>
 }
 function stylePatch(style:Style,stage:{width:number;height:number},sourceSize?:{width:number;height:number}|null):Partial<Clip>{
  const layout=captionPresentation(stage,sourceSize)
- const fontSize=Math.round(layout.fontSize*(style==='clean'?.88:style==='cinematic'?.96:1))
+ const fontSize=Math.round(layout.fontSize*(style==='clean'?.88:style==='cinematic'?.96:style==='minimal'?.84:style==='creator'?1.05:1))
+ const color=PRESETS.find(p=>p.id===style)?.color??'#ffffff'
+ const outlineWidth=style==='minimal'?0:style==='bold'||style==='creator'||style==='highlight'?Math.max(3,Math.round(fontSize*.10)):Math.max(2,Math.round(fontSize*.06))
  return {
-  fontFamily:'Noto Sans Sinhala',fontSize,color:style==='cinematic'?'#fff4df':'#ffffff',textAlign:'center',
-  textOutline:{color:'#071320',width:style==='bold'?Math.max(3,Math.round(fontSize*.10)):Math.max(2,Math.round(fontSize*.06))},
-  textShadow:{color:'#000000',blur:Math.max(5,Math.round(fontSize*.16)),offsetX:1,offsetY:3},
+  fontFamily:'Noto Sans Sinhala',fontSize,fontWeight:style==='clean'||style==='minimal'?'normal':'bold',color,textAlign:'center',
+  textOutline:{color:'#071320',width:outlineWidth},
+  textShadow:{color:'#000000',blur:style==='minimal'?2:Math.max(5,Math.round(fontSize*.16)),offsetX:1,offsetY:style==='minimal'?1:3},
   transform:{x:layout.x,y:layout.y,scale:1,rotation:0,anchor:{x:.5,y:.5}},
  }
 }
@@ -136,6 +151,8 @@ export function CaptionEditorInspector(){
    <strong style={{fontSize:14}}>{reviewReady?'Review Sinhala captions':'Caption editor'}</strong>
    <span style={{fontSize:11,color:secondary}}>{stage.width} × {stage.height} · Captions fit the visible video, not black bars</span>
   </div>
+  <ClipAppearance style={style} setStyle={setStyle}/>
+  {!reviewReady&&captionClips.length>0&&<button type="button" aria-label="Apply selected preset to all captions" style={{...button,background:'#105f82',fontWeight:700}} onClick={applyAll}><Paintbrush size={14} style={{verticalAlign:'middle'}}/> Apply to all captions ({captionClips.length})</button>}
   {reviewReady&&<>
    <div style={{fontSize:11,color:secondary}}>Correct recognized words here. The timeline and text styling stay separate from caption generation.</div>
    {issues.some(Boolean)&&<div role="alert" style={{fontSize:11,color:'#ffb7a2'}}>Some generated lines look incorrect, repeated, or too long. Please correct the highlighted lines before adding captions.</div>}
@@ -151,7 +168,6 @@ export function CaptionEditorInspector(){
    </div>)}
    </div>
    <button type="button" aria-label="Edit caption timings" style={button} onClick={()=>setTimings(v=>!v)}>{timings?'Hide timings':'Edit timings (optional)'}</button>
-   <ClipAppearance style={style} setStyle={setStyle}/>
    <button type="button" aria-label="Insert generated captions into timeline" style={{...button,background:'#0b6285',opacity:valid?1:.45}} disabled={!valid} onClick={insert}><Check size={15} style={{verticalAlign:'middle'}}/> Add {draft.length} captions to timeline</button>
    <button type="button" aria-label="Download generated Sinhala SRT" disabled={!valid} onClick={exportSrt} style={{...button,opacity:valid?1:.45}}><Download size={15} style={{verticalAlign:'middle'}}/> Export SRT</button>
   </>}
@@ -169,9 +185,7 @@ export function CaptionEditorInspector(){
      <label style={{display:'grid',gap:5,fontSize:11}}>Duration (seconds)
       <input aria-label="New caption duration" type="number" min=".1" max="60" step=".1" style={control} value={seconds} onChange={e=>setSeconds(Math.max(.1,Math.min(60,Number(e.target.value)||3)))}/>
      </label>
-     <ClipAppearance style={style} setStyle={setStyle}/>
      <button type="button" style={button} onClick={addManual}><Plus size={14} style={{verticalAlign:'middle'}}/> Add caption at playhead</button>
-     <button type="button" style={button} onClick={applyAll}><Paintbrush size={14} style={{verticalAlign:'middle'}}/> Apply style to all captions ({captionClips.length})</button>
     </div>}
    </details>
   </>}
