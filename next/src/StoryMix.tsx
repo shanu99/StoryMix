@@ -1,7 +1,18 @@
 import {FolderOpen,Save,Upload,Subtitles,Download,ChevronDown,Undo2,Redo2,Clapperboard,CloudOff} from 'lucide-react'
 import {parseSrt,writeSrt} from './subtitles'
+import {captionPresentation,videoStageFromMedia,wrapCaption} from './captionLayout'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { ClipProperties } from './ClipProperties'
+import { CreativePanel } from './CreativePanels'
+import { VoiceRecorder } from './VoiceRecorder'
+import { AdvancedAudioPanel } from './AdvancedAudioPanel'
+import { CaptionsWorkbench } from './CaptionsWorkbench'
+import { CaptionEditorInspector } from './CaptionEditorInspector'
+import { CaptionWorkspaceProvider } from './CaptionWorkspaceState'
+import { LocalProjectRecovery } from './LocalProjectRecovery'
+import { AdvancedTimelineTools } from './AdvancedTimelineTools'
+import { TrackArrangement,TimelineZoomButtons,TimelineDragAutoPan } from './TrackArrangement'
+import { VisualCanvasTools } from './VisualCanvasTools'
 import { ExportModal } from './ExportModal'
 import { btnDisabled, theme } from './theme'
 import {WorkspaceNavigation,WorkspacePanel,AudioPanelInfo,CaptionsPanelInfo,type WorkspaceSection} from './WorkspaceNavigation'
@@ -66,10 +77,21 @@ const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }
   const [missingMedia,setMissingMedia]=useState<string[]>([])
   const [message,setMessage]=useState('')
   const download=(blob:Blob,name:string)=>{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}
-  const importMedia=async(files:File[])=>{setMessage('Importing '+files.length+' media files...');try{const result=await importFiles(files);let added=0;for(const asset of result.imported){const inserted=await insertMediaAsset(engine,asset.id,{desiredStartFrame:engine.getTotalFrames()});if(inserted.ok)added++}setMessage('Imported '+result.imported.length+' files, placed '+added+' clips'+(result.skipped.length?'; skipped '+result.skipped.length:''))}catch(e){setMessage('Import error: '+String(e))}}
+  const importMedia=async(files:File[])=>{setMessage('Importing '+files.length+' media files...');try{const result=await importFiles(files);let added=0;for(const asset of result.imported){
+  // The first actual video defines the canvas; images can be overlays.
+  // Respect manual portrait/square stage selection and later video imports.
+  const currentProject=engine.getProject()
+  const hasVideo=Object.values(currentProject.clips).flat().some(c=>c.type==='video');
+  const unconfiguredStage=currentProject.stage.width===1920&&currentProject.stage.height===1080
+  if(!hasVideo&&unconfiguredStage&&asset.kind==='video'){
+   const size=videoStageFromMedia(asset.width??0,asset.height??0)
+   if(size)engine.setStage(size.width,size.height)
+  }
+  const inserted=await insertMediaAsset(engine,asset.id,{desiredStartFrame:engine.getTotalFrames()});if(inserted.ok)added++
+ }setMessage('Imported '+result.imported.length+' files, placed '+added+' clips'+(result.skipped.length?'; skipped '+result.skipped.length:''))}catch(e){setMessage('Import error: '+String(e))}}
   const saveProject=()=>{try{const project=engine.getProject();download(new Blob([JSON.stringify(project,null,2)],{type:'application/json'}),'StoryMix-project.json');setMessage('Project saved. Keep original media files for relinking.')}catch(e){setMessage('Save failed: '+String(e));console.error('StoryMix project save',e)}}
   useEffect(()=>{const onSave=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();saveProject()}};window.addEventListener('keydown',onSave);return()=>window.removeEventListener('keydown',onSave)},[engine])
-  const checkMissing=(project:ReturnType<typeof engine.getProject>)=>Object.values(project.clips).flat().filter(clip=>['video','audio','image'].includes(clip.type)&&typeof clip.src==='string'&&clip.src.startsWith('blob:')).map(clip=>clip.name)
+  const checkMissing=(project:ReturnType<typeof engine.getProject>)=>[...new Set(Object.values(project.clips).flat().filter(clip=>['video','audio','image'].includes(clip.type)&&typeof clip.src==='string'&&clip.src.startsWith('blob:')).map(clip=>clip.name))]
   const openProject=async(file:File)=>{try{const {readProjectDocument}=await import('@elah/editor');const project=readProjectDocument(JSON.parse(await file.text()));engine.loadProject(project,{history:'reset',transport:'rewind'});const missing=checkMissing(project);setMissingMedia(missing);setMessage(missing.length?'Project loaded. Relink '+missing.length+' local media files.':'Project loaded.')}catch(e){setMessage('Open failed: '+String(e))}}
   const relinkFiles=async(files:File[])=>{
     if(!files.length)return;
@@ -80,7 +102,7 @@ const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }
       const urls=new Map<string,string>();
       const clips=Object.fromEntries(Object.entries(project.clips).map(([track,bucket])=>[track,bucket.map(clip=>{
         if(!['video','audio','image'].includes(clip.type)||typeof clip.src!=='string')return clip;
-        const match=byName.get(clip.name.toLowerCase())||byName.get(decodeURIComponent(clip.src.split('/').pop()||'').toLowerCase());
+        const match=byName.get(clip.name.toLowerCase());
         if(!match)return clip;
         let url=urls.get(match.name);if(!url){url=URL.createObjectURL(match);urls.set(match.name,url)}
         replaced++;
@@ -94,7 +116,17 @@ const AppHeader = memo(function AppHeader({ onExport }: { onExport: () => void }
       setMessage('Relinked '+replaced+' clips'+(remaining.length?'; '+remaining.length+' still need media':''));
     }catch(e){setMessage('Relink failed: '+String(e))}
   }
-  const addSrt=async(file:File)=>{try{const segments=parseSrt(await file.text());const track=engine.addTrack('elements',{name:'Captions'});engine.batch(()=>{for(const seg of segments)engine.addClip({type:'text',trackId:track.id,name:'Caption',startFrame:Math.round(seg.start*30),durationFrames:Math.max(1,Math.round((seg.end-seg.start)*30)),text:{content:seg.text,fontSize:48,color:'#ffffff',fontFamily:'sans-serif'}})},'Import captions');setMessage('Imported '+segments.length+' captions')}catch(e){setMessage('SRT error: '+String(e))}}
+  const addSrt=async(file:File)=>{try{const segments=parseSrt(await file.text());if(!segments.length)throw new Error('No valid captions found in SRT');const track=engine.addTrack('elements',{name:'Captions'});engine.batch(()=>{
+  const layout=captionPresentation(engine.getProject().stage)
+  for(const seg of segments){
+   const added=engine.addClip({type:'text',trackId:track.id,name:'Caption',startFrame:Math.round(seg.start*30),
+     durationFrames:Math.max(1,Math.round((seg.end-seg.start)*30)),
+     text:{content:wrapCaption(seg.text,layout.maxCharactersPerLine),fontSize:layout.fontSize,color:'#ffffff',fontFamily:'Noto Sans Sinhala',textAlign:'center'}})
+   engine.updateClip(added.id,track.id,{transform:{x:layout.x,y:layout.y,scale:1,rotation:0,anchor:{x:.5,y:.5}},
+     textOutline:{color:'#071321',width:Math.max(2,Math.round(layout.fontSize*.07))},
+     textShadow:{color:'#000000',blur:Math.max(4,Math.round(layout.fontSize*.13)),offsetX:1,offsetY:3}})
+  }
+ },'Import captions');setMessage('Imported '+segments.length+' captions')}catch(e){setMessage('SRT error: '+String(e))}}
   const exportSrt=()=>{try{const p=engine.getProject();const entries=p.tracks.filter(t=>t.kind==='elements'&&/caption/i.test(t.name)).flatMap(t=>(p.clips[t.id]||[]).filter(c=>c.type==='text'&&c.content).map(c=>({start:c.startFrame/30,end:(c.startFrame+c.durationFrames)/30,text:c.content||''})));download(new Blob([writeSrt(entries)],{type:'text/plain;charset=utf-8'}),'StoryMix-captions.srt');setMessage('SRT exported: '+entries.length+' captions')}catch(e){setMessage('SRT export failed: '+String(e));console.error('StoryMix SRT export',e)}}
   return (
     <header className="sm-topbar">
@@ -150,9 +182,23 @@ const PreviewTransport = memo(function PreviewTransport() {
   const togglePlayPause = usePlaybackStore((s) => s.togglePlayPause)
   const totalFrames = useTracksStore((s) => s.totalFrames)
   const timecodeRef = useRef<HTMLSpanElement>(null)
+  const seekRef = useRef<HTMLInputElement>(null)
+  const seek=(raw:string)=>{
+    const match=raw.trim().match(/^(\d{1,2}):(\d{1,2}):(\d{1,2}):(\d{1,2})$/)
+    if(!match||Number(match[2])>=60||Number(match[3])>=60||Number(match[4])>=FPS){
+      if(seekRef.current)seekRef.current.value=framesToTimecode(usePlaybackStore.getState().currentFrame,FPS)
+      return
+    }
+    const [,hours,minutes,seconds,frames]=match
+    const target=Math.min(totalFrames,((Number(hours)*3600+Number(minutes)*60+Number(seconds))*FPS)+Number(frames))
+    usePlaybackStore.getState().pause()
+    usePlaybackStore.getState().setCurrentFrame(target)
+    if(seekRef.current)seekRef.current.value=framesToTimecode(target,FPS)
+  }
 
   useEffect(() => {
     return usePlaybackStore.subscribe((state) => {
+      if(seekRef.current&&document.activeElement!==seekRef.current)seekRef.current.value=framesToTimecode(state.currentFrame,FPS)
       if (timecodeRef.current) {
         const dur = Math.max(totalFrames, 1)
         timecodeRef.current.textContent =
@@ -162,6 +208,7 @@ const PreviewTransport = memo(function PreviewTransport() {
   }, [totalFrames])
 
   useEffect(() => {
+    if(seekRef.current)seekRef.current.value=framesToTimecode(usePlaybackStore.getState().currentFrame,FPS)
     if (timecodeRef.current) {
       const frame = usePlaybackStore.getState().currentFrame
       const dur = Math.max(totalFrames, 1)
@@ -197,7 +244,7 @@ const PreviewTransport = memo(function PreviewTransport() {
         flexShrink: 0,
       }}
     >
-      <span
+      <div style={{display:'flex',alignItems:'center',gap:9,minWidth:0}}><span
         ref={timecodeRef}
         style={{
           fontSize: 11,
@@ -209,6 +256,10 @@ const PreviewTransport = memo(function PreviewTransport() {
       >
         00:00:00:00 / 00:00:00:00
       </span>
+      <input ref={seekRef} type="text" aria-label="Seek timecode" title="Precise timecode seek — HH:MM:SS:FF; press Enter" defaultValue="00:00:00:00"
+        onKeyDown={e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur()} }} onBlur={e=>seek(e.currentTarget.value)}
+        style={{width:112,padding:'5px 7px',borderRadius:6,border:'1px solid #355164',color:'#bbecff',background:'#0d1b29',fontFamily:theme.fontMono,fontSize:11,flexShrink:0}}/>
+      </div>
 
       <button
         type="button"
@@ -234,13 +285,6 @@ const TimelineControls = memo(function TimelineControls({
   const zoom = usePlaybackStore((s) => s.zoom)
   const setZoom = usePlaybackStore((s) => s.setZoom)
   const stage = useTracksStore((s) => s.stage)
-  const hasSelection = useSelectionStore((s) => s.selectedClipIds.size === 1)
-
-  const splitAtPlayhead = useCallback(() => {
-    const result = splitClipAtPlayhead(engine)
-    if (!result.ok) console.warn('[example] split failed:', result.reason)
-  }, [engine])
-
   const aspectActive = (w: number, h: number) =>
     Math.abs(stage.width / stage.height - w / h) < 0.001
 
@@ -274,20 +318,12 @@ const TimelineControls = memo(function TimelineControls({
         flexShrink: 0,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <button
-          type="button"
-          className="elah-toolbar-btn"
-          style={btnDisabled(!hasSelection)}
-          disabled={!hasSelection}
-          onClick={splitAtPlayhead}
-          title="Split at playhead (S)"
-        >
-          ✂ Split
-        </button>
+      <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '1 1 auto' }}>
+        <div style={{display:'flex',gap:7,alignItems:'center',minWidth:0}}><TrackArrangement /><AdvancedTimelineTools /></div>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+        <TimelineZoomButtons />
         <span style={{ fontSize: 11, color: theme.textMuted }}>Zoom</span>
         <input
           type="range"
@@ -394,19 +430,40 @@ export default function ProductionEditor() {
     usePlaybackStore.getState().pause()
     const project = e.getProject()
     const { lazyExportVideo } = await import('@elah/editor')
-    const blob = await lazyExportVideo(project, {
+    const exportOptions = {
       videoBitrate: opts.videoBitrate,
       outputHeight: opts.outputHeight,
       videoCodec: opts.videoCodec,
       audioCodec: opts.audioCodec,
       signal: opts.signal,
-      onProgress: ({ frame, totalFrames }) => opts.onProgress(frame, totalFrames),
-    })
+      onProgress: ({ frame, totalFrames }: {frame:number;totalFrames:number}) => opts.onProgress(frame, totalFrames),
+    }
+    let blob:Blob
+    // Dev-only verification switch: exercise the real FFmpeg path in CI even
+    // when the test browser supports native AAC. Omitted from production builds.
+    const forceWasm = import.meta.env.DEV && new URLSearchParams(location.search).has('forceWasmExport')
+    try {
+      if (forceWasm) {
+        const { exportMp4WithWasm } = await import('./ffmpegFallback')
+        blob = await exportMp4WithWasm(project, exportOptions)
+      } else {
+        blob = await lazyExportVideo(project, exportOptions)
+      }
+    } catch(error) {
+      // Some Chromium builds lack the WebCodecs AAC encoder even when H.264
+      // video encoding works. Preserve the original fast export where possible.
+      const reason = String(error)
+      if (!/mp4a\.40\.2|AudioEncoder|audio.*encoder.*config|encoder configuration/i.test(reason) || opts.signal.aborted) throw error
+      const { exportMp4WithWasm } = await import('./ffmpegFallback')
+      blob = await exportMp4WithWasm(project, exportOptions)
+    }
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = 'StoryMix-export.mp4'
+    document.body.appendChild(a)
     a.click()
+    a.remove()
     setTimeout(() => URL.revokeObjectURL(url), 60_000)
   }, [])
 
@@ -417,11 +474,14 @@ export default function ProductionEditor() {
       initialTracks={INITIAL_TRACKS}
       stage={{ width: 1920, height: 1080 }}
     >
+      <CaptionWorkspaceProvider>
       <div
         className="elah-root sm-hybrid-editor"
         style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
       >
         <AppHeader onExport={() => setShowExportModal(true)} />
+        <TimelineDragAutoPan />
+        <LocalProjectRecovery />
         {showExportModal && (
           <ExportModal
             onClose={() => setShowExportModal(false)}
@@ -435,8 +495,10 @@ export default function ProductionEditor() {
             <WorkspacePanel active={activeTool}>
               {activeTool==='Media' ? <AssetPanel style={{flex:1,minHeight:0}} /> :
                activeTool==='Text' ? <ElementsPanel style={{flex:1,minHeight:0}} /> :
-               activeTool==='Audio' ? <AudioPanelInfo /> :
-               activeTool==='Captions' ? <CaptionsPanelInfo /> : undefined}
+               activeTool==='Audio' ? <AdvancedAudioPanel /> :
+               activeTool==='Captions' ? <CaptionsWorkbench /> :
+               activeTool==='Effects'||activeTool==='Filters'||activeTool==='Transitions'||activeTool==='Keyframes' ? <CreativePanel type={activeTool} /> :
+               activeTool==='Record' ? <VoiceRecorder /> : undefined}
             </WorkspacePanel>
 
             <div
@@ -454,11 +516,12 @@ export default function ProductionEditor() {
                   demuxerFactory={demuxerFactoryRef.current}
                   style={{ width: '100%', height: '100%' }}
                 />
+                <VisualCanvasTools />
               </div>
               <PreviewTransport />
             </div>
 
-            <aside className="sm-inspector" aria-label="Properties inspector"><div className="sm-inspector-caption">INSPECTOR <span>PROPERTIES</span></div><ClipProperties /></aside>
+            <aside className="sm-inspector" aria-label="Properties inspector"><div className="sm-inspector-caption">INSPECTOR <span>{activeTool==='Captions'?'CAPTION EDITOR':'PROPERTIES'}</span></div>{activeTool==='Captions'?<CaptionEditorInspector/>:<ClipProperties/>}</aside>
           </div>
 
           <TimelineControls timelineRef={timelineRef} />
@@ -490,6 +553,7 @@ export default function ProductionEditor() {
           />
         </div>
       </div>
+      </CaptionWorkspaceProvider>
     </EditorProvider>
   )
 }

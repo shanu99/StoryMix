@@ -11,8 +11,9 @@ import {
   type TextAnimation,
 } from '@elah/editor'
 import { sectionLabel, theme } from './theme'
+import {captionScriptIssue} from './captionLayout'
 
-const FONTS = ['sans-serif', 'serif', 'monospace', 'Georgia', 'Impact']
+const FONTS = ['Noto Sans Sinhala', 'Gemunu Libre', 'Yaldevi', 'Abhaya Libre', 'Noto Serif Sinhala Variable', 'Iskoola Pota', 'sans-serif', 'serif', 'monospace', 'Georgia', 'Impact']
 
 const inputStyle: CSSProperties = {
   flex: 1,
@@ -137,7 +138,7 @@ export function TextClipProperties() {
   const panelShell = (
     <div
       style={{
-        width: 300,
+        width: '100%',
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
@@ -184,6 +185,7 @@ export function TextClipProperties() {
   if (!clip) return panelShell
 
   const effective = { ...clip, ...local }
+  const corruptCaption = clip.name==='AI Caption'?captionScriptIssue(effective.content??''):null
 
   const commit = (updates: Partial<Clip>) => {
     setLocal((prev) => ({ ...prev, ...updates }))
@@ -196,7 +198,7 @@ export function TextClipProperties() {
   return (
     <div
       style={{
-        width: 300,
+        width: '100%',
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
@@ -218,6 +220,13 @@ export function TextClipProperties() {
         </div>
       </div>
 
+      {corruptCaption&&<div role="alert" style={{padding:11,margin:'9px 11px 0',border:'1px solid #a85544',borderRadius:8,
+        background:'#392523',color:'#ffd1c5',display:'grid',gap:8,fontSize:11,lineHeight:1.5}}>
+        <strong>Unusable AI caption detected</strong>
+        <span>{corruptCaption} This caption was generated before the new safeguards. Delete it and generate again, or replace its text below.</span>
+        <button type="button" aria-label="Remove invalid AI caption" onClick={()=>engine.removeClip(clip.id,clip.trackId)}
+          style={{background:'#66332e',color:'#ffe0d9',border:'1px solid #b96b60',borderRadius:6,padding:'8px 10px',cursor:'pointer'}}>Remove invalid caption</button>
+      </div>}
       <CollapsibleSection title="CONTENT">
         <FieldRow label="Text">
           <textarea

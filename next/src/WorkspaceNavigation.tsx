@@ -6,10 +6,11 @@ export const WORKSPACE_SECTIONS = [
   {name:'Audio', icon:Music2, summary:'Audio tracks and sound tools.', ready:true},
   {name:'Text', icon:Type, summary:'Titles, typography, and graphics.', ready:true},
   {name:'Captions', icon:Captions, summary:'Sinhala and English subtitles.', ready:true},
-  {name:'Effects', icon:Sparkles, summary:'Video effects are planned for a future module.', ready:false},
-  {name:'Transitions', icon:BetweenHorizontalEnd, summary:'Transitions library is coming in a later phase.', ready:false},
-  {name:'Filters', icon:SlidersHorizontal, summary:'Color presets and filters are coming in a later phase.', ready:false},
-  {name:'Record', icon:Video, summary:'Screen and microphone recording will be added in a later phase.', ready:false},
+  {name:'Effects', icon:Sparkles, summary:'Live-rendered effects with editable parameters.', ready:true},
+  {name:'Transitions', icon:BetweenHorizontalEnd, summary:'Visual transitions and custom durations.', ready:true},
+  {name:'Filters', icon:SlidersHorizontal, summary:'Cinematic color presets and correction.', ready:true},
+  {name:'Keyframes', icon:Sparkles, summary:'Animate position, opacity, rotation and volume.', ready:true},
+  {name:'Record', icon:Video, summary:'Record microphone narration into the project.', ready:true},
   {name:'Templates', icon:LayoutTemplate, summary:'Reusable creative templates are coming in a later phase.', ready:false},
 ] as const
 export type WorkspaceSection = typeof WORKSPACE_SECTIONS[number]['name']
