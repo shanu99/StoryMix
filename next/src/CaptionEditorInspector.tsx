@@ -174,6 +174,14 @@ export function CaptionEditorInspector(){
  const contentSize=sourceAsset?.width&&sourceAsset?.height
   ? {width:sourceAsset.width,height:sourceAsset.height}:null
  const captionLayout=captionPresentation(stage,contentSize)
+ useEffect(()=>{
+  if(!selectedText||!customFonts.length)return
+  const group=captionGroup(selectedText)
+  if(!group)return
+  const groupFonts=Object.values(clips).flat().filter(c=>captionGroup(c)?.id===group.id).map(c=>c.fontFamily)
+  const font=customFonts.find(f=>f.kind==='legacy'&&groupFonts.includes(f.family))
+  if(font)setFontOverride(font.family)
+ },[selectedText?.id,customFonts,clips])
  const toTimeline=(start:number,end:number)=>{
   if(!source)throw Error('Source clip was removed. Please regenerate the captions.')
   const timelineStart=sourceSecondsToTimelineFrame(start,source.startFrame,source.speed??1)
@@ -252,7 +260,7 @@ export function CaptionEditorInspector(){
  const changeCaptionFont=(target:Clip,font:string,encoding:LegacyEncoding|null,override?:string)=>{
   return applyCaptionFont({
    engine,clip:target,allClips:Object.values(clips).flat(),tracks,
-   font,encoding,stageWidth:stage.width,stageHeight:stage.height,sourceOverride:override
+   font,encoding,stageWidth:stage.width,stageHeight:stage.height,baseY:captionLayout.y,sourceOverride:override
   })
  }
  const chooseFont=async(font:string,uploaded?:CustomCaptionFont)=>{
