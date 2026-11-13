@@ -1,7 +1,8 @@
+import {detectLegacyFamily} from './legacyCaptionEncoding'
 /**
  * User-owned font library for caption styling.
  * Font files stay in this browser's IndexedDB and are never uploaded to StoryMix.
- * Unicode text remains Unicode; legacy FM/Isiwara encodings are NOT converted here.
+ * Unicode text remains the canonical source; render conversion happens in legacyCaptionEncoding.
  */
 export type CustomCaptionFont = {
  id:string
@@ -73,7 +74,8 @@ export async function importCustomCaptionFont(file:File,kind:'unicode'|'legacy')
  const id=crypto.randomUUID()
  const name=file.name.replace(/\.(ttf|otf|woff2?)$/i,'').replace(/[_-]+/g,' ').trim()
  const family='StoryMixUserFont-'+id.replaceAll('-','')
- const record:StoredFont={id,name,family,kind,size:file.size,bytes}
+ const effectiveKind=detectLegacyFamily(name)?'legacy':kind
+ const record:StoredFont={id,name,family,kind:effectiveKind,size:file.size,bytes}
  // Reject malformed files before storing.
  await mountFont(record)
  await run<void>('readwrite',(store,resolve,reject)=>{
