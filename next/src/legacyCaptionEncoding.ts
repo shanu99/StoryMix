@@ -56,8 +56,12 @@ function encodeSinhalaWord(input:string,encoding:LegacyEncoding):CaptionFontRun[
    if(!node)break
    if(typeof node.value!=='string')continue
    const next=best[j+1],current=best[i]
-   if(next.miss<current.miss||(next.miss===current.miss&&next.steps+1<current.steps))
-    best[i]={miss:next.miss,steps:next.steps+1,end:j+1,kind:'legacy',text:node.value}
+   // The Isiwara laboratory table contains a few pass-through Unicode
+   // placeholders for unsupported glyphs: render those with the Unicode font.
+   const unmapped=/[\\u0d80-\\u0dff]/u.test(node.value)
+   const miss=next.miss+(unmapped?j-i+1:0)
+   if(miss<current.miss||(miss===current.miss&&next.steps+1<current.steps))
+    best[i]={miss,steps:next.steps+1,end:j+1,kind:unmapped?'unicode':'legacy',text:node.value}
   }
  }
  const pieces:CaptionFontRun[]=[]
