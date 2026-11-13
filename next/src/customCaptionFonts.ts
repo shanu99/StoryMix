@@ -1,4 +1,4 @@
-import {detectLegacyFamily} from './legacyCaptionEncoding'
+import {detectLegacyFamily,type LegacyEncoding} from './legacyCaptionEncoding'
 /**
  * User-owned font library for caption styling.
  * Font files stay in this browser's IndexedDB and are never uploaded to StoryMix.
@@ -9,6 +9,7 @@ export type CustomCaptionFont = {
  name:string
  family:string
  kind:'unicode'|'legacy'
+ encoding?:LegacyEncoding|null
  size:number
 }
 type StoredFont = CustomCaptionFont & {bytes:ArrayBuffer}
@@ -43,8 +44,8 @@ async function run<T>(mode:IDBTransactionMode,cb:(store:IDBObjectStore,resolve:(
  }finally{db.close()}
 }
 function metadata(record:StoredFont):CustomCaptionFont{
- const {id,name,family,kind,size}=record
- return {id,name,family,kind,size}
+ const {id,name,family,kind,size,encoding}=record
+ return {id,name,family,kind,size,encoding}
 }
 function mountFont(record:StoredFont):Promise<void>{
  if(faceCache.has(record.id))return Promise.resolve()
@@ -67,6 +68,36 @@ export async function listCustomCaptionFonts():Promise<CustomCaptionFont[]>{
  }
  return available.sort((a,b)=>a.name.localeCompare(b.name))
 }
+function sfntFamilyName(bytes:ArrayBuffer):string{
+ // Read the OpenType/TrueType name table so a renamed .ttf can still
+ // be identified as FM or Isiwara. WOFF(2) falls back to filename.
+ try{
+  const d=new DataView(bytes),tables=d.getUint16(4)
+  if(tables>100||bytes.byteLength<12+tables*16)return ''
+  let offset=0,length=0
+  for(let i=0;i<tables;i++){
+   const at=12+i*16
+   if(d.getUint32(at)===0x6e616d65){offset=d.getUint32(at+8);length=d.getUint32(at+12);break}
+  }
+  if(!length||offset+length>bytes.byteLength||length>1_000_000)return ''
+  const count=d.getUint16(offset+2),storage=offset+d.getUint16(offset+4)
+  const names:string[]=[]
+  for(let i=0;i<Math.min(count,150);i++){
+   const at=offset+6+i*12
+   if(at+12>offset+length)break
+   const platform=d.getUint16(at),nameId=d.getUint16(at+6)
+   if(![1,4,6].includes(nameId))continue
+   const n=d.getUint16(at+8),where=storage+d.getUint16(at+10)
+   if(n>500||where+n>offset+length)continue
+   const buf=new Uint8Array(bytes,where,n)
+   const value=(platform===0||platform===3)
+    ?Array.from({length:Math.floor(n/2)},(_,j)=>String.fromCharCode(buf[j*2]*256+buf[j*2+1])).join('')
+    :Array.from(buf,b=>String.fromCharCode(b)).join('')
+   if(value)names.push(value)
+  }
+  return names.join(' ')
+ }catch{return ''}
+}
 export async function importCustomCaptionFont(file:File,kind:'unicode'|'legacy'):Promise<CustomCaptionFont>{
  if(!/\.(ttf|otf|woff2?)$/i.test(file.name))throw new Error('Choose a TTF, OTF, WOFF or WOFF2 font.')
  if(file.size<128||file.size>MAX_FONT_SIZE)throw new Error('Font must be smaller than 12 MB.')
@@ -74,8 +105,9 @@ export async function importCustomCaptionFont(file:File,kind:'unicode'|'legacy')
  const id=crypto.randomUUID()
  const name=file.name.replace(/\.(ttf|otf|woff2?)$/i,'').replace(/[_-]+/g,' ').trim()
  const family='StoryMixUserFont-'+id.replaceAll('-','')
- const effectiveKind=detectLegacyFamily(name)?'legacy':kind
- const record:StoredFont={id,name,family,kind:effectiveKind,size:file.size,bytes}
+ const encoding=detectLegacyFamily(name+' '+sfntFamilyName(bytes))
+ const effectiveKind=encoding?'legacy':kind
+ const record:StoredFont={id,name,family,kind:effectiveKind,encoding,size:file.size,bytes}
  // Reject malformed files before storing.
  await mountFont(record)
  await run<void>('readwrite',(store,resolve,reject)=>{
