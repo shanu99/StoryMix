@@ -105,7 +105,7 @@ function FontLibrary({
    </optgroup>}
    {fonts.some(f=>f.kind==='legacy')&&<optgroup label="FM / Isiwara · Auto-render">
     {fonts.filter(f=>f.kind==='legacy').map(font=><option key={font.id} value={font.family}
-     disabled={!detectLegacyFamily(font.name)}>{font.name}{detectLegacyFamily(font.name)?' · automatic':' · unknown mapping'}</option>)}
+     disabled={!(font.encoding??detectLegacyFamily(font.name))}>{font.name}{(font.encoding??detectLegacyFamily(font.name))?' · automatic':' · unknown mapping'}</option>)}
    </optgroup>}
   </select>
   <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
@@ -255,7 +255,7 @@ export function CaptionEditorInspector(){
  })
  const currentFontEncoding=(family=fontOverride):LegacyEncoding|null=>{
   const found=customFonts.find(f=>f.family===family)
-  return found?.kind==='legacy'?detectLegacyFamily(found.name):null
+  return found?.kind==='legacy'?(found.encoding??detectLegacyFamily(found.name)):null
  }
  const changeCaptionFont=(target:Clip,font:string,encoding:LegacyEncoding|null,override?:string)=>{
   return applyCaptionFont({
@@ -265,7 +265,7 @@ export function CaptionEditorInspector(){
  }
  const chooseFont=async(font:string,uploaded?:CustomCaptionFont)=>{
   const stored=uploaded??customFonts.find(f=>f.family===font)
-  const encoding=stored?.kind==='legacy'?detectLegacyFamily(stored.name):null
+  const encoding=stored?.kind==='legacy'?(stored.encoding??detectLegacyFamily(stored.name)):null
   if(stored?.kind==='legacy'&&!encoding){
    setFontNotice('This font has an unknown legacy layout. Rename it FM or Isi and import again to identify the mapping.');return
   }
