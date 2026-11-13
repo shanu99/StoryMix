@@ -79,7 +79,7 @@ export function applyCaptionFont({
  const segments=lines.map(entry=>({
   ...entry,
   fontFamily:entry.kind==='legacy'?font:'Noto Sans Sinhala',
-  width:fontWidth(ctx,entry.text,entry.kind==='legacy'?font:'Noto Sans Sinhala',size,weight)
+  width:fontWidth(ctx,entry.text,entry.kind==='legacy'?font:'Noto Sans Sinhala',size,String(weight))
  }))
  const byRow=new Map<number,typeof segments>()
  for(const segment of segments)byRow.set(segment.row,[...(byRow.get(segment.row)??[]),segment])
