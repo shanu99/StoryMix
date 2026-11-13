@@ -10,6 +10,8 @@ import '@fontsource/abhaya-libre/400.css'
 import '@fontsource/abhaya-libre/700.css'
 import '@fontsource-variable/noto-serif-sinhala'
 import '@fontsource/noto-sans-sinhala/700.css'
+import '@fontsource/gemunu-libre/700.css'
+import '@fontsource/yaldevi/600.css'
 
 const control:CSSProperties={padding:'9px 10px',border:'1px solid #38566c',borderRadius:8,background:'#112334',color:'#e8f6ff',width:'100%',fontFamily:'Noto Sans Sinhala, Inter, sans-serif',fontSize:12}
 const button:CSSProperties={padding:'10px 11px',border:'1px solid #385c74',borderRadius:8,background:'#18364a',color:'#e8f7ff',cursor:'pointer',fontSize:12}
@@ -20,12 +22,12 @@ type Preset={
  fill:string;size:number;outline:number;outlineColor:string;shadow:number;shadowY:number;vertical:number;previewSize:number
 }
 const PRESETS:Preset[]=[
- {id:'clean',name:'Studio',description:'Classic subtitle',font:'Noto Sans Sinhala',weight:'normal',fill:'#ffffff',size:.84,outline:.055,outlineColor:'#030b12',shadow:6,shadowY:2,vertical:0,previewSize:14},
- {id:'bold',name:'Impact',description:'Big & punchy',font:'Noto Sans Sinhala',weight:'bold',fill:'#ffffff',size:1.20,outline:.14,outlineColor:'#02060c',shadow:10,shadowY:4,vertical:-.04,previewSize:19},
- {id:'cinematic',name:'Cinema',description:'Film typography',font:'Abhaya Libre',weight:'bold',fill:'#fff6e7',size:1.15,outline:.035,outlineColor:'#281a13',shadow:12,shadowY:4,vertical:.025,previewSize:19},
- {id:'creator',name:'Creator',description:'Bold social look',font:'Noto Sans Sinhala',weight:'bold',fill:'#ffe45d',size:1.16,outline:.14,outlineColor:'#100c13',shadow:9,shadowY:4,vertical:-.065,previewSize:19},
- {id:'highlight',name:'Editorial',description:'Elegant Sinhala serif',font:'Noto Serif Sinhala Variable',weight:'bold',fill:'#b9eeff',size:1.04,outline:.045,outlineColor:'#0a2132',shadow:7,shadowY:2,vertical:.015,previewSize:17},
- {id:'minimal',name:'Minimal',description:'Quiet & understated',font:'Abhaya Libre',weight:'normal',fill:'#ffffff',size:.83,outline:0,outlineColor:'#000000',shadow:3,shadowY:1,vertical:.06,previewSize:15},
+ {id:'clean',name:'Classic',description:'Simple broadcast',font:'Noto Sans Sinhala',weight:'normal',fill:'#ffffff',size:.86,outline:.045,outlineColor:'#030b12',shadow:3,shadowY:2,vertical:0,previewSize:14},
+ {id:'bold',name:'Impact',description:'Heavy display',font:'Gemunu Libre',weight:'bold',fill:'#ffffff',size:1.42,outline:.16,outlineColor:'#02060c',shadow:12,shadowY:5,vertical:-.06,previewSize:26},
+ {id:'cinematic',name:'Film',description:'Elegant Sinhala serif',font:'Abhaya Libre',weight:'bold',fill:'#fff4e5',size:1.22,outline:.015,outlineColor:'#1b1318',shadow:8,shadowY:5,vertical:.025,previewSize:23},
+ {id:'creator',name:'Pop',description:'Vibrant creator',font:'Yaldevi',weight:'bold',fill:'#ffef4c',size:1.28,outline:.12,outlineColor:'#250730',shadow:12,shadowY:5,vertical:-.05,previewSize:22},
+ {id:'highlight',name:'Editorial',description:'Premium letterforms',font:'Noto Serif Sinhala Variable',weight:'bold',fill:'#b9eafa',size:1.07,outline:.035,outlineColor:'#0a2132',shadow:6,shadowY:3,vertical:.02,previewSize:19},
+ {id:'minimal',name:'Quiet',description:'Delicate subtitles',font:'Abhaya Libre',weight:'normal',fill:'#ffffff',size:.75,outline:0,outlineColor:'#000000',shadow:1,shadowY:1,vertical:.075,previewSize:15},
 ]
 const preset=(id:Style):Preset=>PRESETS.find(p=>p.id===id)??PRESETS[0]
 
@@ -47,11 +49,11 @@ function ClipAppearance({style,setStyle}:{style:Style;setStyle:(style:Style)=>vo
    {PRESETS.map(p=><button key={p.id} type="button" aria-label={p.name+' caption preset'} aria-pressed={style===p.id}
     onClick={()=>setStyle(p.id)}
     style={{background:'#162535',color:'#eaf5ff',border:'1px solid '+(style===p.id?'#16b9f5':'#355064'),borderRadius:10,padding:5,display:'grid',gap:6,cursor:'pointer',textAlign:'left',boxShadow:style===p.id?'0 0 0 1px #16b9f5':'none'}}>
-    <div aria-hidden="true" style={{height:74,borderRadius:6,background:'linear-gradient(145deg,#334957 0%,#152332 42%,#081018 100%)',
-      display:'flex',justifyContent:'center',alignItems:p.vertical<-.03?'center':'flex-end',overflow:'hidden',padding:'7px 3px 12px'}}>
+    <div aria-hidden="true" style={{height:88,borderRadius:6,background:p.id==='creator'?'linear-gradient(145deg,#4c2b66,#101b2f 65%)':p.id==='cinematic'?'linear-gradient(145deg,#2e2835,#0a111d 65%)':'linear-gradient(145deg,#344b61 0%,#152332 42%,#081018 100%)',
+      display:'flex',justifyContent:'center',alignItems:p.vertical<-.03?'center':'flex-end',overflow:'hidden',padding:'7px 3px 13px'}}>
      <span lang="si" style={{fontFamily:p.font+', sans-serif',fontSize:p.previewSize,fontWeight:p.weight,color:p.fill,
-      lineHeight:1.45,whiteSpace:'nowrap',textShadow:'0 '+p.shadowY+'px '+Math.min(p.shadow,8)+'px #000, 0 1px 2px #000',
-      WebkitTextStroke:p.outline>0?(p.outline*12).toFixed(1)+'px '+p.outlineColor:'0px transparent'}}>
+      lineHeight:1.45,whiteSpace:'nowrap',textShadow:p.id==='creator'?'2px 3px 0 #ee3265, 4px 5px 0 #172234':'0 '+p.shadowY+'px '+Math.min(p.shadow,8)+'px #000, 0 1px 2px #000',
+      WebkitTextStroke:p.outline>0?(p.outline*17).toFixed(1)+'px '+p.outlineColor:'0px transparent'}}>
       ආයුබෝවන්
      </span>
     </div>
